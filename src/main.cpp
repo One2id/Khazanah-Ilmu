@@ -10,8 +10,8 @@
 #include "modules/fine.h"
 
 int main() {
-    sql::Connection* con = dbConnect();
-    if (!con) {
+    mysqlx::Session* sess = dbConnect();
+    if (!sess) {
         std::cerr << "\nFailed to start. Exiting.\n";
         return 1;
     }
@@ -29,15 +29,15 @@ int main() {
 
         int choice = getMenuChoice(0, 6);
         switch (choice) {
-            case 1: manageMembers(con);   break;
-            case 2: manageBooks(con);     break;
-            case 3: manageAuthors(con);   break;
-            case 4: manageLanguages(con); break;
-            case 5: manageLoans(con);     break;
-            case 6: manageFines(con);     break;
+            case 1: manageMembers(sess);   break;
+            case 2: manageBooks(sess);     break;
+            case 3: manageAuthors(sess);   break;
+            case 4: manageLanguages(sess); break;
+            case 5: manageLoans(sess);     break;
+            case 6: manageFines(sess);     break;
             case 0:
                 std::cout << "\nGoodbye. Ma'a salama.\n\n";
-                delete con;
+                delete sess;
                 return 0;
         }
     }

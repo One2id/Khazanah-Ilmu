@@ -1,5 +1,5 @@
 #pragma once
 #include "../db/connection.h"
 
-void listAuthors(sql::Connection* con);
-void manageAuthors(sql::Connection* con);
+void listAuthors(mysqlx::Session* sess);
+void manageAuthors(mysqlx::Session* sess);

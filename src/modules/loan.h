@@ -1,5 +1,5 @@
 #pragma once
 #include "../db/connection.h"
 
-void listLoans(sql::Connection* con);
-void manageLoans(sql::Connection* con);
+void listLoans(mysqlx::Session* sess);
+void manageLoans(mysqlx::Session* sess);

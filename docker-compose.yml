@@ -11,6 +11,7 @@ services:
       MYSQL_PASSWORD: kilms_pass
     ports:
       - "3306:3306"
+      - "33060:33060"
     volumes:
       - kilms_data:/var/lib/mysql
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql

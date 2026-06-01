@@ -7,92 +7,93 @@
 #include <vector>
 #include <string>
 
-static void addBook(sql::Connection* con) {
+static void addBook(mysqlx::Session* sess) {
     std::cout << "\n--- Add Book ---\n";
-
-    listAuthors(con);
-    listLanguages(con);
+    listAuthors(sess);
+    listLanguages(sess);
     std::cout << "\n";
 
-    std::string title    = getStringInput("Title: ");
-    int authorId         = getIntInput("Author ID (0 = unknown): ", false, 0);
-    int languageId       = getIntInput("Language ID (0 = unknown): ", false, 0);
-    std::string genre    = getStringInput("Genre (e.g. History, Philosophy) [optional]: ", true);
-    std::string country  = getStringInput("Origin Country [optional]: ", true);
-    std::string yearStr  = getStringInput("Published Year (negative for BCE) [optional]: ", true);
-    std::string era      = getStringInput("Historical Era (e.g. Medieval, Classical) [optional]: ", true);
-    int copies           = getIntInput("Copies Available [default 1]: ", true, 1);
+    std::string title   = getStringInput("Title: ");
+    int authorId        = getIntInput("Author ID (0 = unknown): ", false, 0);
+    int languageId      = getIntInput("Language ID (0 = unknown): ", false, 0);
+    std::string genre   = getStringInput("Genre (e.g. History, Philosophy) [optional]: ", true);
+    std::string country = getStringInput("Origin Country [optional]: ", true);
+    std::string yearStr = getStringInput("Published Year (negative for BCE) [optional]: ", true);
+    std::string era     = getStringInput("Historical Era (e.g. Medieval, Classical) [optional]: ", true);
+    int copies          = getIntInput("Copies Available [default 1]: ", true, 1);
 
     try {
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-            "INSERT INTO book (title, author_id, language_id, genre, origin_country, published_year, historical_era, copies_available)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)"));
-        pstmt->setString(1, title);
-        (authorId   == 0) ? pstmt->setNull(2, 0) : pstmt->setInt(2, authorId);
-        (languageId == 0) ? pstmt->setNull(3, 0) : pstmt->setInt(3, languageId);
-        genre.empty()   ? pstmt->setNull(4, 0) : pstmt->setString(4, genre);
-        country.empty() ? pstmt->setNull(5, 0) : pstmt->setString(5, country);
-        yearStr.empty() ? pstmt->setNull(6, 0) : pstmt->setInt(6, std::stoi(yearStr));
-        era.empty()     ? pstmt->setNull(7, 0) : pstmt->setString(7, era);
-        pstmt->setInt(8, copies);
-        pstmt->executeUpdate();
+        mysqlx::Value authVal = (authorId   == 0) ? mysqlx::nullvalue : mysqlx::Value(authorId);
+        mysqlx::Value langVal = (languageId == 0) ? mysqlx::nullvalue : mysqlx::Value(languageId);
+        mysqlx::Value yearVal = yearStr.empty() ? mysqlx::nullvalue : mysqlx::Value(std::stoi(yearStr));
+        mysqlx::Value genreVal   = genre.empty()   ? mysqlx::nullvalue : mysqlx::Value(genre);
+        mysqlx::Value countryVal = country.empty() ? mysqlx::nullvalue : mysqlx::Value(country);
+        mysqlx::Value eraVal     = era.empty()     ? mysqlx::nullvalue : mysqlx::Value(era);
+
+        sess->sql(
+            "INSERT INTO book (title, author_id, language_id, genre, origin_country,"
+            " published_year, historical_era, copies_available) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+            .bind(title, authVal, langVal, genreVal, countryVal, yearVal, eraVal, copies)
+            .execute();
         std::cout << "Book added successfully.\n";
-    } catch (sql::SQLException& e) {
-        if (e.getErrorCode() == 1452)
+    } catch (const mysqlx::Error& e) {
+        std::string msg = e.what();
+        if (msg.find("1452") != std::string::npos)
             std::cout << "Error: Invalid author ID or language ID.\n";
         else
-            std::cout << "Database error: " << e.what() << "\n";
+            std::cout << "Database error: " << msg << "\n";
     } catch (std::exception& e) {
         std::cout << "Input error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-static void editBook(sql::Connection* con) {
+static void editBook(mysqlx::Session* sess) {
     std::cout << "\n--- Edit Book ---\n";
     int id = getIntInput("Enter Book ID to edit: ");
 
     try {
-        std::unique_ptr<sql::PreparedStatement> sel(con->prepareStatement(
-            "SELECT b.*, a.author_name, l.language_name FROM book b"
-            " LEFT JOIN author a ON b.author_id = a.author_id"
+        auto res = sess->sql(
+            "SELECT b.book_id, b.title, b.author_id, b.language_id, b.genre,"
+            " b.origin_country, b.published_year, b.historical_era, b.copies_available,"
+            " a.author_name, l.language_name"
+            " FROM book b"
+            " LEFT JOIN author a   ON b.author_id   = a.author_id"
             " LEFT JOIN language l ON b.language_id = l.language_id"
-            " WHERE b.book_id = ?"));
-        sel->setInt(1, id);
-        std::unique_ptr<sql::ResultSet> rs(sel->executeQuery());
-
-        if (!rs->next()) {
+            " WHERE b.book_id = ?").bind(id).execute();
+        auto row = res.fetchOne();
+        if (!row) {
             std::cout << "Book ID " << id << " not found.\n";
             pressEnterToContinue();
             return;
         }
 
-        std::string curTitle    = safeStr(rs.get(), "title");
-        std::string curAuthorId = safeInt(rs.get(), "author_id");
-        std::string curLangId   = safeInt(rs.get(), "language_id");
-        std::string curGenre    = safeStr(rs.get(), "genre");
-        std::string curCountry  = safeStr(rs.get(), "origin_country");
-        std::string curYear     = safeInt(rs.get(), "published_year");
-        std::string curEra      = safeStr(rs.get(), "historical_era");
-        std::string curCopies   = std::to_string(rs->getInt("copies_available"));
+        std::string curTitle    = safeStr(row, 1);
+        std::string curAuthorId = safeInt(row, 2);
+        std::string curLangId   = safeInt(row, 3);
+        std::string curGenre    = safeStr(row, 4);
+        std::string curCountry  = safeStr(row, 5);
+        std::string curYear     = safeInt(row, 6);
+        std::string curEra      = safeStr(row, 7);
+        std::string curCopies   = std::to_string(row[8].get<int>());
 
         std::cout << "Current: " << curTitle
-                  << " | Author: " << safeStr(rs.get(), "author_name")
-                  << " | Lang: " << safeStr(rs.get(), "language_name") << "\n";
+                  << " | Author: " << safeStr(row, 9)
+                  << " | Lang: "   << safeStr(row, 10) << "\n";
         std::cout << "(Leave blank to keep current value)\n\n";
 
-        listAuthors(con);
-        listLanguages(con);
+        listAuthors(sess);
+        listLanguages(sess);
         std::cout << "\n";
 
-        std::string title    = getStringInput("Title      [" + curTitle    + "]: ", true);
-        std::string authorId = getStringInput("Author ID  [" + curAuthorId + "]: ", true);
-        std::string langId   = getStringInput("Language ID[" + curLangId   + "]: ", true);
-        std::string genre    = getStringInput("Genre      [" + curGenre    + "]: ", true);
-        std::string country  = getStringInput("Country    [" + curCountry  + "]: ", true);
-        std::string yearStr  = getStringInput("Year       [" + curYear     + "]: ", true);
-        std::string era      = getStringInput("Era        [" + curEra      + "]: ", true);
-        std::string copies   = getStringInput("Copies     [" + curCopies   + "]: ", true);
+        std::string title    = getStringInput("Title       [" + curTitle    + "]: ", true);
+        std::string authorId = getStringInput("Author ID   [" + curAuthorId + "]: ", true);
+        std::string langId   = getStringInput("Language ID [" + curLangId   + "]: ", true);
+        std::string genre    = getStringInput("Genre       [" + curGenre    + "]: ", true);
+        std::string country  = getStringInput("Country     [" + curCountry  + "]: ", true);
+        std::string yearStr  = getStringInput("Year        [" + curYear     + "]: ", true);
+        std::string era      = getStringInput("Era         [" + curEra      + "]: ", true);
+        std::string copies   = getStringInput("Copies      [" + curCopies   + "]: ", true);
 
         if (title.empty())    title    = curTitle;
         if (authorId.empty()) authorId = curAuthorId;
@@ -109,48 +110,43 @@ static void editBook(sql::Connection* con) {
             return;
         }
 
-        std::unique_ptr<sql::PreparedStatement> upd(con->prepareStatement(
+        mysqlx::Value authVal    = authorId.empty() ? mysqlx::nullvalue : mysqlx::Value(std::stoi(authorId));
+        mysqlx::Value langVal    = langId.empty()   ? mysqlx::nullvalue : mysqlx::Value(std::stoi(langId));
+        mysqlx::Value genreVal   = genre.empty()    ? mysqlx::nullvalue : mysqlx::Value(genre);
+        mysqlx::Value countryVal = country.empty()  ? mysqlx::nullvalue : mysqlx::Value(country);
+        mysqlx::Value yearVal    = yearStr.empty()  ? mysqlx::nullvalue : mysqlx::Value(std::stoi(yearStr));
+        mysqlx::Value eraVal     = era.empty()      ? mysqlx::nullvalue : mysqlx::Value(era);
+
+        sess->sql(
             "UPDATE book SET title=?, author_id=?, language_id=?, genre=?, origin_country=?,"
-            " published_year=?, historical_era=?, copies_available=? WHERE book_id=?"));
-        upd->setString(1, title);
-        authorId.empty() ? upd->setNull(2, 0) : upd->setInt(2, std::stoi(authorId));
-        langId.empty()   ? upd->setNull(3, 0) : upd->setInt(3, std::stoi(langId));
-        genre.empty()    ? upd->setNull(4, 0) : upd->setString(4, genre);
-        country.empty()  ? upd->setNull(5, 0) : upd->setString(5, country);
-        yearStr.empty()  ? upd->setNull(6, 0) : upd->setInt(6, std::stoi(yearStr));
-        era.empty()      ? upd->setNull(7, 0) : upd->setString(7, era);
-        upd->setInt(8, std::stoi(copies));
-        upd->setInt(9, id);
-        upd->executeUpdate();
+            " published_year=?, historical_era=?, copies_available=? WHERE book_id=?")
+            .bind(title, authVal, langVal, genreVal, countryVal, yearVal, eraVal,
+                  std::stoi(copies), id)
+            .execute();
         std::cout << "Book updated successfully.\n";
-    } catch (sql::SQLException& e) {
-        if (e.getErrorCode() == 1452)
-            std::cout << "Error: Invalid author ID or language ID.\n";
-        else
-            std::cout << "Database error: " << e.what() << "\n";
+    } catch (const mysqlx::Error& e) {
+        std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-static void deleteBook(sql::Connection* con) {
+static void deleteBook(mysqlx::Session* sess) {
     std::cout << "\n--- Delete Book ---\n";
     int id = getIntInput("Enter Book ID to delete: ");
 
     try {
-        std::unique_ptr<sql::PreparedStatement> sel(con->prepareStatement(
+        auto res = sess->sql(
             "SELECT b.title, a.author_name FROM book b"
-            " LEFT JOIN author a ON b.author_id = a.author_id WHERE b.book_id = ?"));
-        sel->setInt(1, id);
-        std::unique_ptr<sql::ResultSet> rs(sel->executeQuery());
-
-        if (!rs->next()) {
+            " LEFT JOIN author a ON b.author_id = a.author_id WHERE b.book_id = ?")
+            .bind(id).execute();
+        auto row = res.fetchOne();
+        if (!row) {
             std::cout << "Book ID " << id << " not found.\n";
             pressEnterToContinue();
             return;
         }
 
-        std::cout << "Book: " << safeStr(rs.get(), "title")
-                  << " by " << safeStr(rs.get(), "author_name") << "\n";
+        std::cout << "Book: " << safeStr(row, 0) << " by " << safeStr(row, 1) << "\n";
 
         if (!getConfirmation("Are you sure you want to delete this book?")) {
             std::cout << "Delete cancelled.\n";
@@ -158,21 +154,19 @@ static void deleteBook(sql::Connection* con) {
             return;
         }
 
-        std::unique_ptr<sql::PreparedStatement> del(con->prepareStatement(
-            "DELETE FROM book WHERE book_id = ?"));
-        del->setInt(1, id);
-        del->executeUpdate();
+        sess->sql("DELETE FROM book WHERE book_id = ?").bind(id).execute();
         std::cout << "Book deleted successfully.\n";
-    } catch (sql::SQLException& e) {
-        if (e.getErrorCode() == 1451)
+    } catch (const mysqlx::Error& e) {
+        std::string msg = e.what();
+        if (msg.find("1451") != std::string::npos)
             std::cout << "Error: Cannot delete — active loan records are linked to this book.\n";
         else
-            std::cout << "Database error: " << e.what() << "\n";
+            std::cout << "Database error: " << msg << "\n";
     }
     pressEnterToContinue();
 }
 
-static void searchBook(sql::Connection* con) {
+static void searchBook(mysqlx::Session* sess) {
     std::cout << "\n--- Search Books ---\n";
     std::cout << " 1. Search by title\n";
     std::cout << " 2. Search by language\n";
@@ -181,88 +175,69 @@ static void searchBook(sql::Connection* con) {
     std::cout << " 5. Show all books\n";
     int choice = getMenuChoice(1, 5);
 
-    std::string field, kw;
-    std::string query =
+    std::string baseQuery =
         "SELECT b.book_id, b.title, a.author_name, l.language_name,"
-        " b.genre, b.origin_country, b.published_year, b.historical_era, b.copies_available"
+        " b.historical_era, b.copies_available"
         " FROM book b"
-        " LEFT JOIN author a   ON b.author_id   = a.author_id"
+        " LEFT JOIN author   a ON b.author_id   = a.author_id"
         " LEFT JOIN language l ON b.language_id = l.language_id";
-
-    if (choice == 5) {
-        query += " ORDER BY b.book_id";
-        kw = "";
-    } else {
-        std::string searchField;
-        switch (choice) {
-            case 1: searchField = "b.title";         kw = getStringInput("Search title: ");    break;
-            case 2: searchField = "l.language_name"; kw = getStringInput("Search language: "); break;
-            case 3: searchField = "b.historical_era"; kw = getStringInput("Search era: ");     break;
-            case 4: searchField = "b.origin_country"; kw = getStringInput("Search country: "); break;
-        }
-        query += " WHERE " + searchField + " LIKE ? ORDER BY b.book_id";
-    }
 
     try {
         std::vector<int> w = {4, 28, 22, 12, 14, 7};
         printTableHeader({"ID", "Title", "Author", "Language", "Era", "Copies"}, w);
 
         int count = 0;
+        auto printRows = [&](mysqlx::SqlResult& r) {
+            while (auto row = r.fetchOne()) {
+                printRow({
+                    safeInt(row, 0), safeStr(row, 1), safeStr(row, 2),
+                    safeStr(row, 3), safeStr(row, 4),
+                    std::to_string(row[5].get<int>())
+                }, w);
+                count++;
+            }
+        };
+
         if (choice == 5) {
-            std::unique_ptr<sql::Statement> stmt(con->createStatement());
-            std::unique_ptr<sql::ResultSet> rs(stmt->executeQuery(query));
-            while (rs->next()) {
-                printRow({
-                    std::to_string(rs->getInt("book_id")),
-                    safeStr(rs.get(), "title"),
-                    safeStr(rs.get(), "author_name"),
-                    safeStr(rs.get(), "language_name"),
-                    safeStr(rs.get(), "historical_era"),
-                    std::to_string(rs->getInt("copies_available"))
-                }, w);
-                count++;
-            }
+            auto res = sess->sql(baseQuery + " ORDER BY b.book_id").execute();
+            printRows(res);
         } else {
-            std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(query));
-            pstmt->setString(1, "%" + kw + "%");
-            std::unique_ptr<sql::ResultSet> rs(pstmt->executeQuery());
-            while (rs->next()) {
-                printRow({
-                    std::to_string(rs->getInt("book_id")),
-                    safeStr(rs.get(), "title"),
-                    safeStr(rs.get(), "author_name"),
-                    safeStr(rs.get(), "language_name"),
-                    safeStr(rs.get(), "historical_era"),
-                    std::to_string(rs->getInt("copies_available"))
-                }, w);
-                count++;
+            std::string field, kw;
+            switch (choice) {
+                case 1: field = "b.title";          kw = getStringInput("Search title: ");    break;
+                case 2: field = "l.language_name";  kw = getStringInput("Search language: "); break;
+                case 3: field = "b.historical_era"; kw = getStringInput("Search era: ");      break;
+                case 4: field = "b.origin_country"; kw = getStringInput("Search country: "); break;
             }
+            auto res = sess->sql(baseQuery + " WHERE " + field + " LIKE ? ORDER BY b.book_id")
+                           .bind("%" + kw + "%").execute();
+            printRows(res);
         }
+
         printSeparator(w);
         std::cout << count << " result(s) found.\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-void listBooks(sql::Connection* con) {
+void listBooks(mysqlx::Session* sess) {
     try {
-        std::unique_ptr<sql::Statement> stmt(con->createStatement());
-        std::unique_ptr<sql::ResultSet> rs(stmt->executeQuery(
-            "SELECT b.book_id, b.title, b.copies_available FROM book b ORDER BY b.book_id"));
+        auto res = sess->sql(
+            "SELECT book_id, title, copies_available FROM book ORDER BY book_id").execute();
         std::cout << "\nAvailable Books:\n";
-        while (rs->next()) {
-            std::cout << "  [" << rs->getInt("book_id") << "] "
-                      << safeStr(rs.get(), "title")
-                      << " (copies: " << rs->getInt("copies_available") << ")\n";
+        while (auto row = res.fetchOne()) {
+            std::cout << "  [" << safeInt(row, 0) << "] "
+                      << safeStr(row, 1)
+                      << " (copies: " << row[2].get<int>() << ")\n";
         }
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Error loading books: " << e.what() << "\n";
     }
 }
 
-void manageBooks(sql::Connection* con) {
+void manageBooks(mysqlx::Session* sess) {
     while (true) {
         printAppHeader();
         std::cout << " Manage Books\n";
@@ -275,10 +250,10 @@ void manageBooks(sql::Connection* con) {
         std::cout << "----------------------------------------------\n";
 
         switch (getMenuChoice(0, 4)) {
-            case 1: addBook(con);    break;
-            case 2: editBook(con);   break;
-            case 3: deleteBook(con); break;
-            case 4: searchBook(con); break;
+            case 1: addBook(sess);    break;
+            case 2: editBook(sess);   break;
+            case 3: deleteBook(sess); break;
+            case 4: searchBook(sess); break;
             case 0: return;
         }
     }

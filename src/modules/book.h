@@ -1,5 +1,5 @@
 #pragma once
 #include "../db/connection.h"
 
-void listBooks(sql::Connection* con);
-void manageBooks(sql::Connection* con);
+void listBooks(mysqlx::Session* sess);
+void manageBooks(mysqlx::Session* sess);

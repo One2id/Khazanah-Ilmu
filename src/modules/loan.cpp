@@ -7,61 +7,51 @@
 #include <vector>
 #include <string>
 
-// Returns copies_available for a book, or -1 on error
-static int getCopiesAvailable(sql::Connection* con, int bookId) {
+static int getCopiesAvailable(mysqlx::Session* sess, int bookId) {
     try {
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-            "SELECT copies_available FROM book WHERE book_id = ?"));
-        pstmt->setInt(1, bookId);
-        std::unique_ptr<sql::ResultSet> rs(pstmt->executeQuery());
-        if (rs->next()) return rs->getInt("copies_available");
+        auto res = sess->sql("SELECT copies_available FROM book WHERE book_id = ?")
+                       .bind(bookId).execute();
+        auto row = res.fetchOne();
+        if (row) return row[0].get<int>();
     } catch (...) {}
     return -1;
 }
 
-static void adjustCopies(sql::Connection* con, int bookId, int delta) {
+static void adjustCopies(mysqlx::Session* sess, int bookId, int delta) {
     try {
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-            "UPDATE book SET copies_available = copies_available + ? WHERE book_id = ?"));
-        pstmt->setInt(1, delta);
-        pstmt->setInt(2, bookId);
-        pstmt->executeUpdate();
+        sess->sql("UPDATE book SET copies_available = copies_available + ? WHERE book_id = ?")
+            .bind(delta, bookId).execute();
     } catch (...) {}
 }
 
-static void addLoan(sql::Connection* con) {
+static void addLoan(mysqlx::Session* sess) {
     std::cout << "\n--- Add Loan ---\n";
-
-    listMembers(con);
+    listMembers(sess);
     int memberId = getIntInput("\nMember ID: ");
 
-    // Verify member exists and is active
     try {
-        std::unique_ptr<sql::PreparedStatement> chk(con->prepareStatement(
-            "SELECT status FROM member WHERE member_id = ?"));
-        chk->setInt(1, memberId);
-        std::unique_ptr<sql::ResultSet> rs(chk->executeQuery());
-        if (!rs->next()) {
+        auto res = sess->sql("SELECT status FROM member WHERE member_id = ?").bind(memberId).execute();
+        auto row = res.fetchOne();
+        if (!row) {
             std::cout << "Error: Member ID " << memberId << " not found.\n";
             pressEnterToContinue();
             return;
         }
-        if (safeStr(rs.get(), "status") == "suspended") {
+        if (safeStr(row, 0) == "suspended") {
             std::cout << "Error: Member is suspended and cannot borrow books.\n";
             pressEnterToContinue();
             return;
         }
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
         pressEnterToContinue();
         return;
     }
 
-    listBooks(con);
+    listBooks(sess);
     int bookId = getIntInput("\nBook ID: ");
 
-    // Check copies available
-    int copies = getCopiesAvailable(con, bookId);
+    int copies = getCopiesAvailable(sess, bookId);
     if (copies < 0) {
         std::cout << "Error: Book ID " << bookId << " not found.\n";
         pressEnterToContinue();
@@ -77,51 +67,47 @@ static void addLoan(sql::Connection* con) {
     std::string dueDate  = getStringInput("Due Date  (YYYY-MM-DD): ");
 
     try {
-        std::string sql =
-            "INSERT INTO loan (member_id, book_id, loan_date, due_date, status) VALUES (?, ?, "
-            + std::string(loanDate.empty() ? "CURRENT_DATE" : "?") + ", ?, 'active')";
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(sql));
-        pstmt->setInt(1, memberId);
-        pstmt->setInt(2, bookId);
-        int next = 3;
-        if (!loanDate.empty()) pstmt->setString(next++, loanDate);
-        pstmt->setString(next, dueDate);
-        pstmt->executeUpdate();
-
-        adjustCopies(con, bookId, -1);
+        if (loanDate.empty()) {
+            sess->sql("INSERT INTO loan (member_id, book_id, due_date, status) VALUES (?, ?, ?, 'active')")
+                .bind(memberId, bookId, dueDate).execute();
+        } else {
+            sess->sql("INSERT INTO loan (member_id, book_id, loan_date, due_date, status) VALUES (?, ?, ?, ?, 'active')")
+                .bind(memberId, bookId, loanDate, dueDate).execute();
+        }
+        adjustCopies(sess, bookId, -1);
         std::cout << "Loan recorded successfully. Copies remaining: " << (copies - 1) << "\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-static void editLoan(sql::Connection* con) {
+static void editLoan(mysqlx::Session* sess) {
     std::cout << "\n--- Edit Loan (process return / update status) ---\n";
     int id = getIntInput("Enter Loan ID to edit: ");
 
     try {
-        std::unique_ptr<sql::PreparedStatement> sel(con->prepareStatement(
-            "SELECT l.*, m.full_name, b.title, b.book_id FROM loan l"
+        auto res = sess->sql(
+            "SELECT l.loan_id, l.book_id, m.full_name, b.title,"
+            " l.loan_date, l.due_date, l.return_date, l.status"
+            " FROM loan l"
             " JOIN member m ON l.member_id = m.member_id"
             " JOIN book b   ON l.book_id   = b.book_id"
-            " WHERE l.loan_id = ?"));
-        sel->setInt(1, id);
-        std::unique_ptr<sql::ResultSet> rs(sel->executeQuery());
-
-        if (!rs->next()) {
+            " WHERE l.loan_id = ?").bind(id).execute();
+        auto row = res.fetchOne();
+        if (!row) {
             std::cout << "Loan ID " << id << " not found.\n";
             pressEnterToContinue();
             return;
         }
 
-        int    bookId        = rs->getInt("book_id");
-        std::string curMember     = safeStr(rs.get(), "full_name");
-        std::string curBook       = safeStr(rs.get(), "title");
-        std::string curLoanDate   = safeStr(rs.get(), "loan_date");
-        std::string curDueDate    = safeStr(rs.get(), "due_date");
-        std::string curReturnDate = safeStr(rs.get(), "return_date");
-        std::string curStatus     = safeStr(rs.get(), "status");
+        int bookId = row[1].get<int>();
+        std::string curMember     = safeStr(row, 2);
+        std::string curBook       = safeStr(row, 3);
+        std::string curLoanDate   = safeStr(row, 4);
+        std::string curDueDate    = safeStr(row, 5);
+        std::string curReturnDate = safeStr(row, 6);
+        std::string curStatus     = safeStr(row, 7);
 
         std::cout << "\nLoan #" << id << ": " << curMember << " | " << curBook << "\n";
         std::cout << "  Loan: " << curLoanDate << "  Due: " << curDueDate
@@ -129,14 +115,12 @@ static void editLoan(sql::Connection* con) {
         std::cout << "  Status: " << curStatus << "\n";
         std::cout << "(Leave blank to keep current value)\n\n";
 
-        std::string dueDate    = getStringInput("Due Date     [" + curDueDate    + "]: ", true);
-        std::string returnDate = getStringInput("Return Date  [" + (curReturnDate.empty() ? "none" : curReturnDate) + "]: ", true);
-        std::string status     = getStringInput("Status       [" + curStatus + "] (active/returned/overdue): ", true);
+        std::string dueDate    = getStringInput("Due Date    [" + curDueDate + "]: ", true);
+        std::string returnDate = getStringInput("Return Date [" + (curReturnDate.empty() ? "none" : curReturnDate) + "]: ", true);
+        std::string status     = getStringInput("Status      [" + curStatus + "] (active/returned/overdue): ", true);
 
-        if (dueDate.empty())  dueDate  = curDueDate;
-        if (status.empty())   status   = curStatus;
-
-        // Validate status value
+        if (dueDate.empty()) dueDate = curDueDate;
+        if (status.empty())  status  = curStatus;
         if (status != "active" && status != "returned" && status != "overdue") {
             std::cout << "Invalid status. Keeping '" << curStatus << "'.\n";
             status = curStatus;
@@ -148,51 +132,44 @@ static void editLoan(sql::Connection* con) {
             return;
         }
 
-        // Determine copies_available adjustment
         bool wasReturned = (curStatus == "returned");
         bool nowReturned = (status == "returned");
-        if (!wasReturned && nowReturned)  adjustCopies(con, bookId, +1);
-        if (wasReturned  && !nowReturned) adjustCopies(con, bookId, -1);
+        if (!wasReturned && nowReturned)  adjustCopies(sess, bookId, +1);
+        if ( wasReturned && !nowReturned) adjustCopies(sess, bookId, -1);
 
-        std::unique_ptr<sql::PreparedStatement> upd(con->prepareStatement(
-            "UPDATE loan SET due_date=?, return_date=?, status=? WHERE loan_id=?"));
-        upd->setString(1, dueDate);
-        returnDate.empty() ? upd->setNull(2, 0) : upd->setString(2, returnDate);
-        upd->setString(3, status);
-        upd->setInt(4, id);
-        upd->executeUpdate();
+        mysqlx::Value retVal = returnDate.empty() ? mysqlx::nullvalue : mysqlx::Value(returnDate);
+        sess->sql("UPDATE loan SET due_date=?, return_date=?, status=? WHERE loan_id=?")
+            .bind(dueDate, retVal, status, id).execute();
         std::cout << "Loan updated successfully.\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-static void deleteLoan(sql::Connection* con) {
+static void deleteLoan(mysqlx::Session* sess) {
     std::cout << "\n--- Delete Loan ---\n";
     int id = getIntInput("Enter Loan ID to delete: ");
 
     try {
-        std::unique_ptr<sql::PreparedStatement> sel(con->prepareStatement(
-            "SELECT l.status, m.full_name, b.title, b.book_id"
+        auto res = sess->sql(
+            "SELECT l.status, l.book_id, m.full_name, b.title"
             " FROM loan l"
             " JOIN member m ON l.member_id = m.member_id"
-            " JOIN book b   ON l.book_id   = b.book_id"
-            " WHERE l.loan_id = ?"));
-        sel->setInt(1, id);
-        std::unique_ptr<sql::ResultSet> rs(sel->executeQuery());
-
-        if (!rs->next()) {
+            " JOIN book   b ON l.book_id   = b.book_id"
+            " WHERE l.loan_id = ?").bind(id).execute();
+        auto row = res.fetchOne();
+        if (!row) {
             std::cout << "Loan ID " << id << " not found.\n";
             pressEnterToContinue();
             return;
         }
 
-        int bookId = rs->getInt("book_id");
-        std::string status = safeStr(rs.get(), "status");
+        std::string status = safeStr(row, 0);
+        int bookId = row[1].get<int>();
 
-        std::cout << "Loan: " << safeStr(rs.get(), "full_name")
-                  << " borrowed '" << safeStr(rs.get(), "title")
+        std::cout << "Loan: " << safeStr(row, 2)
+                  << " borrowed '" << safeStr(row, 3)
                   << "' | Status: " << status << "\n";
 
         if (!getConfirmation("Are you sure? Associated fine record will also be deleted.")) {
@@ -201,21 +178,17 @@ static void deleteLoan(sql::Connection* con) {
             return;
         }
 
-        // If book was on loan (not returned), restore copy
-        if (status != "returned") adjustCopies(con, bookId, +1);
+        if (status != "returned") adjustCopies(sess, bookId, +1);
 
-        std::unique_ptr<sql::PreparedStatement> del(con->prepareStatement(
-            "DELETE FROM loan WHERE loan_id = ?"));
-        del->setInt(1, id);
-        del->executeUpdate();
+        sess->sql("DELETE FROM loan WHERE loan_id = ?").bind(id).execute();
         std::cout << "Loan deleted successfully.\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-static void searchLoan(sql::Connection* con) {
+static void searchLoan(mysqlx::Session* sess) {
     std::cout << "\n--- Search Loans ---\n";
     std::cout << " 1. Search by member name\n";
     std::cout << " 2. Search by book title\n";
@@ -223,9 +196,9 @@ static void searchLoan(sql::Connection* con) {
     std::cout << " 4. Show all loans\n";
     int choice = getMenuChoice(1, 4);
 
-    std::string baseQuery =
-        "SELECT l.loan_id, m.full_name, b.title, l.loan_date, l.due_date,"
-        " l.return_date, l.status"
+    std::string base =
+        "SELECT l.loan_id, m.full_name, b.title,"
+        " l.loan_date, l.due_date, l.return_date, l.status"
         " FROM loan l"
         " JOIN member m ON l.member_id = m.member_id"
         " JOIN book   b ON l.book_id   = b.book_id";
@@ -235,72 +208,60 @@ static void searchLoan(sql::Connection* con) {
         printTableHeader({"ID", "Member", "Book", "Loan Date", "Due Date", "Returned", "Status"}, w);
 
         int count = 0;
-        auto printResult = [&](sql::ResultSet* rs) {
-            while (rs->next()) {
+        auto printRows = [&](mysqlx::SqlResult& r) {
+            while (auto row = r.fetchOne()) {
                 printRow({
-                    std::to_string(rs->getInt("loan_id")),
-                    safeStr(rs, "full_name"),
-                    safeStr(rs, "title"),
-                    safeStr(rs, "loan_date"),
-                    safeStr(rs, "due_date"),
-                    safeStr(rs, "return_date"),
-                    safeStr(rs, "status")
+                    safeInt(row, 0), safeStr(row, 1), safeStr(row, 2),
+                    safeStr(row, 3), safeStr(row, 4),
+                    safeStr(row, 5), safeStr(row, 6)
                 }, w);
                 count++;
             }
         };
 
         if (choice == 4) {
-            std::unique_ptr<sql::Statement> stmt(con->createStatement());
-            std::unique_ptr<sql::ResultSet> rs(stmt->executeQuery(baseQuery + " ORDER BY l.loan_id"));
-            printResult(rs.get());
+            auto res = sess->sql(base + " ORDER BY l.loan_id").execute();
+            printRows(res);
         } else if (choice == 3) {
             std::string st = getStringInput("Status (active/returned/overdue): ");
-            std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-                baseQuery + " WHERE l.status = ? ORDER BY l.loan_id"));
-            pstmt->setString(1, st);
-            std::unique_ptr<sql::ResultSet> rs(pstmt->executeQuery());
-            printResult(rs.get());
+            auto res = sess->sql(base + " WHERE l.status = ? ORDER BY l.loan_id").bind(st).execute();
+            printRows(res);
         } else {
             std::string field = (choice == 1) ? "m.full_name" : "b.title";
             std::string kw = getStringInput("Search: ");
-            std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-                baseQuery + " WHERE " + field + " LIKE ? ORDER BY l.loan_id"));
-            pstmt->setString(1, "%" + kw + "%");
-            std::unique_ptr<sql::ResultSet> rs(pstmt->executeQuery());
-            printResult(rs.get());
+            auto res = sess->sql(base + " WHERE " + field + " LIKE ? ORDER BY l.loan_id")
+                           .bind("%" + kw + "%").execute();
+            printRows(res);
         }
 
         printSeparator(w);
         std::cout << count << " result(s) found.\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-void listLoans(sql::Connection* con) {
+void listLoans(mysqlx::Session* sess) {
     try {
-        std::unique_ptr<sql::Statement> stmt(con->createStatement());
-        std::unique_ptr<sql::ResultSet> rs(stmt->executeQuery(
+        auto res = sess->sql(
             "SELECT l.loan_id, m.full_name, b.title, l.status"
             " FROM loan l"
             " JOIN member m ON l.member_id = m.member_id"
             " JOIN book   b ON l.book_id   = b.book_id"
-            " ORDER BY l.loan_id"));
+            " ORDER BY l.loan_id").execute();
         std::cout << "\nLoan Records:\n";
-        while (rs->next()) {
-            std::cout << "  [" << rs->getInt("loan_id") << "] "
-                      << safeStr(rs.get(), "full_name") << " — "
-                      << safeStr(rs.get(), "title")
-                      << " [" << safeStr(rs.get(), "status") << "]\n";
+        while (auto row = res.fetchOne()) {
+            std::cout << "  [" << safeInt(row, 0) << "] "
+                      << safeStr(row, 1) << " — "
+                      << safeStr(row, 2) << " [" << safeStr(row, 3) << "]\n";
         }
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Error loading loans: " << e.what() << "\n";
     }
 }
 
-void manageLoans(sql::Connection* con) {
+void manageLoans(mysqlx::Session* sess) {
     while (true) {
         printAppHeader();
         std::cout << " Manage Loans\n";
@@ -313,10 +274,10 @@ void manageLoans(sql::Connection* con) {
         std::cout << "----------------------------------------------\n";
 
         switch (getMenuChoice(0, 4)) {
-            case 1: addLoan(con);    break;
-            case 2: editLoan(con);   break;
-            case 3: deleteLoan(con); break;
-            case 4: searchLoan(con); break;
+            case 1: addLoan(sess);    break;
+            case 2: editLoan(sess);   break;
+            case 3: deleteLoan(sess); break;
+            case 4: searchLoan(sess); break;
             case 0: return;
         }
     }

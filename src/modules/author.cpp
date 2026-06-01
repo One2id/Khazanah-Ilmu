@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 
-static void addAuthor(sql::Connection* con) {
+static void addAuthor(mysqlx::Session* sess) {
     std::cout << "\n--- Add Author ---\n";
     std::string name        = getStringInput("Author Name: ");
     std::string nationality = getStringInput("Nationality [optional]: ", true);
@@ -14,18 +14,16 @@ static void addAuthor(sql::Connection* con) {
     std::string era         = getStringInput("Era (e.g. Renaissance, Abbasid) [optional]: ", true);
 
     try {
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-            "INSERT INTO author (author_name, nationality, birth_year, death_year, era) VALUES (?, ?, ?, ?, ?)"));
-        pstmt->setString(1, name);
-        nationality.empty() ? pstmt->setNull(2, 0) : pstmt->setString(2, nationality);
-        if (birthStr.empty()) pstmt->setNull(3, 0);
-        else pstmt->setInt(3, std::stoi(birthStr));
-        if (deathStr.empty()) pstmt->setNull(4, 0);
-        else pstmt->setInt(4, std::stoi(deathStr));
-        era.empty() ? pstmt->setNull(5, 0) : pstmt->setString(5, era);
-        pstmt->executeUpdate();
+        mysqlx::Value birthVal  = birthStr.empty()  ? mysqlx::nullvalue : mysqlx::Value(std::stoi(birthStr));
+        mysqlx::Value deathVal  = deathStr.empty()  ? mysqlx::nullvalue : mysqlx::Value(std::stoi(deathStr));
+        mysqlx::Value natVal    = nationality.empty() ? mysqlx::nullvalue : mysqlx::Value(nationality);
+        mysqlx::Value eraVal    = era.empty()         ? mysqlx::nullvalue : mysqlx::Value(era);
+
+        sess->sql("INSERT INTO author (author_name, nationality, birth_year, death_year, era) VALUES (?, ?, ?, ?, ?)")
+            .bind(name, natVal, birthVal, deathVal, eraVal)
+            .execute();
         std::cout << "Author added successfully.\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     } catch (std::exception& e) {
         std::cout << "Input error: " << e.what() << "\n";
@@ -33,27 +31,24 @@ static void addAuthor(sql::Connection* con) {
     pressEnterToContinue();
 }
 
-static void editAuthor(sql::Connection* con) {
+static void editAuthor(mysqlx::Session* sess) {
     std::cout << "\n--- Edit Author ---\n";
     int id = getIntInput("Enter Author ID to edit: ");
 
     try {
-        std::unique_ptr<sql::PreparedStatement> sel(con->prepareStatement(
-            "SELECT * FROM author WHERE author_id = ?"));
-        sel->setInt(1, id);
-        std::unique_ptr<sql::ResultSet> rs(sel->executeQuery());
-
-        if (!rs->next()) {
+        auto res = sess->sql("SELECT * FROM author WHERE author_id = ?").bind(id).execute();
+        auto row = res.fetchOne();
+        if (!row) {
             std::cout << "Author ID " << id << " not found.\n";
             pressEnterToContinue();
             return;
         }
 
-        std::string curName        = safeStr(rs.get(), "author_name");
-        std::string curNationality = safeStr(rs.get(), "nationality");
-        std::string curBirth       = safeInt(rs.get(), "birth_year");
-        std::string curDeath       = safeInt(rs.get(), "death_year");
-        std::string curEra         = safeStr(rs.get(), "era");
+        std::string curName        = safeStr(row, 1);
+        std::string curNationality = safeStr(row, 2);
+        std::string curBirth       = safeInt(row, 3);
+        std::string curDeath       = safeInt(row, 4);
+        std::string curEra         = safeStr(row, 5);
 
         std::cout << "Current: " << curName << " (" << curNationality << ", " << curEra << ")\n";
         std::cout << "(Leave blank to keep current value)\n\n";
@@ -67,6 +62,8 @@ static void editAuthor(sql::Connection* con) {
         if (name.empty())        name        = curName;
         if (nationality.empty()) nationality = curNationality;
         if (era.empty())         era         = curEra;
+        if (birthStr.empty())    birthStr    = curBirth;
+        if (deathStr.empty())    deathStr    = curDeath;
 
         if (!getConfirmation("Save changes?")) {
             std::cout << "Edit cancelled.\n";
@@ -74,42 +71,33 @@ static void editAuthor(sql::Connection* con) {
             return;
         }
 
-        std::unique_ptr<sql::PreparedStatement> upd(con->prepareStatement(
-            "UPDATE author SET author_name=?, nationality=?, birth_year=?, death_year=?, era=? WHERE author_id=?"));
-        upd->setString(1, name);
-        nationality.empty() ? upd->setNull(2, 0) : upd->setString(2, nationality);
-        if (birthStr.empty())  upd->setNull(3, 0);
-        else upd->setInt(3, std::stoi(birthStr));
-        if (deathStr.empty()) upd->setNull(4, 0);
-        else upd->setInt(4, std::stoi(deathStr));
-        era.empty() ? upd->setNull(5, 0) : upd->setString(5, era);
-        upd->setInt(6, id);
-        upd->executeUpdate();
+        mysqlx::Value birthVal = birthStr.empty() ? mysqlx::nullvalue : mysqlx::Value(std::stoi(birthStr));
+        mysqlx::Value deathVal = deathStr.empty() ? mysqlx::nullvalue : mysqlx::Value(std::stoi(deathStr));
+
+        sess->sql("UPDATE author SET author_name=?, nationality=?, birth_year=?, death_year=?, era=? WHERE author_id=?")
+            .bind(name, nationality, birthVal, deathVal, era, id)
+            .execute();
         std::cout << "Author updated successfully.\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-static void deleteAuthor(sql::Connection* con) {
+static void deleteAuthor(mysqlx::Session* sess) {
     std::cout << "\n--- Delete Author ---\n";
     int id = getIntInput("Enter Author ID to delete: ");
 
     try {
-        std::unique_ptr<sql::PreparedStatement> sel(con->prepareStatement(
-            "SELECT * FROM author WHERE author_id = ?"));
-        sel->setInt(1, id);
-        std::unique_ptr<sql::ResultSet> rs(sel->executeQuery());
-
-        if (!rs->next()) {
+        auto res = sess->sql("SELECT * FROM author WHERE author_id = ?").bind(id).execute();
+        auto row = res.fetchOne();
+        if (!row) {
             std::cout << "Author ID " << id << " not found.\n";
             pressEnterToContinue();
             return;
         }
 
-        std::cout << "Author: " << safeStr(rs.get(), "author_name")
-                  << " (" << safeStr(rs.get(), "nationality") << ")\n";
+        std::cout << "Author: " << safeStr(row, 1) << " (" << safeStr(row, 2) << ")\n";
 
         if (!getConfirmation("Are you sure you want to delete this author?")) {
             std::cout << "Delete cancelled.\n";
@@ -117,69 +105,61 @@ static void deleteAuthor(sql::Connection* con) {
             return;
         }
 
-        std::unique_ptr<sql::PreparedStatement> del(con->prepareStatement(
-            "DELETE FROM author WHERE author_id = ?"));
-        del->setInt(1, id);
-        del->executeUpdate();
+        sess->sql("DELETE FROM author WHERE author_id = ?").bind(id).execute();
         std::cout << "Author deleted. Books by this author will show NULL author.\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-static void searchAuthor(sql::Connection* con) {
+static void searchAuthor(mysqlx::Session* sess) {
     std::cout << "\n--- Search Authors ---\n";
     std::string kw = getStringInput("Search by name or nationality (blank = show all): ", true);
 
     try {
         std::string q = "%" + kw + "%";
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-            "SELECT * FROM author WHERE author_name LIKE ? OR nationality LIKE ? ORDER BY author_id"));
-        pstmt->setString(1, q);
-        pstmt->setString(2, q);
-        std::unique_ptr<sql::ResultSet> rs(pstmt->executeQuery());
+        auto res = sess->sql(
+            "SELECT * FROM author WHERE author_name LIKE ? OR nationality LIKE ? ORDER BY author_id")
+            .bind(q, q).execute();
 
         std::vector<int> w = {4, 26, 16, 6, 6, 20};
         printTableHeader({"ID", "Name", "Nationality", "Born", "Died", "Era"}, w);
 
         int count = 0;
-        while (rs->next()) {
+        while (auto row = res.fetchOne()) {
             printRow({
-                std::to_string(rs->getInt("author_id")),
-                safeStr(rs.get(), "author_name"),
-                safeStr(rs.get(), "nationality"),
-                safeInt(rs.get(), "birth_year"),
-                safeInt(rs.get(), "death_year"),
-                safeStr(rs.get(), "era")
+                safeInt(row, 0),
+                safeStr(row, 1),
+                safeStr(row, 2),
+                safeInt(row, 3),
+                safeInt(row, 4),
+                safeStr(row, 5)
             }, w);
             count++;
         }
         printSeparator(w);
         std::cout << count << " result(s) found.\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-void listAuthors(sql::Connection* con) {
+void listAuthors(mysqlx::Session* sess) {
     try {
-        std::unique_ptr<sql::Statement> stmt(con->createStatement());
-        std::unique_ptr<sql::ResultSet> rs(stmt->executeQuery(
-            "SELECT author_id, author_name, nationality FROM author ORDER BY author_id"));
+        auto res = sess->sql("SELECT author_id, author_name, nationality FROM author ORDER BY author_id").execute();
         std::cout << "\nAvailable Authors:\n";
-        while (rs->next()) {
-            std::cout << "  [" << rs->getInt("author_id") << "] "
-                      << safeStr(rs.get(), "author_name")
-                      << " (" << safeStr(rs.get(), "nationality") << ")\n";
+        while (auto row = res.fetchOne()) {
+            std::cout << "  [" << safeInt(row, 0) << "] "
+                      << safeStr(row, 1) << " (" << safeStr(row, 2) << ")\n";
         }
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Error loading authors: " << e.what() << "\n";
     }
 }
 
-void manageAuthors(sql::Connection* con) {
+void manageAuthors(mysqlx::Session* sess) {
     while (true) {
         printAppHeader();
         std::cout << " Manage Authors\n";
@@ -192,10 +172,10 @@ void manageAuthors(sql::Connection* con) {
         std::cout << "----------------------------------------------\n";
 
         switch (getMenuChoice(0, 4)) {
-            case 1: addAuthor(con);    break;
-            case 2: editAuthor(con);   break;
-            case 3: deleteAuthor(con); break;
-            case 4: searchAuthor(con); break;
+            case 1: addAuthor(sess);    break;
+            case 2: editAuthor(sess);   break;
+            case 3: deleteAuthor(sess); break;
+            case 4: searchAuthor(sess); break;
             case 0: return;
         }
     }

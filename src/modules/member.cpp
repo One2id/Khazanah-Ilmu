@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 
-static void addMember(sql::Connection* con) {
+static void addMember(mysqlx::Session* sess) {
     std::cout << "\n--- Add Member ---\n";
     std::string name   = getStringInput("Full Name: ");
     std::string email  = getStringInput("Email [optional]: ", true);
@@ -20,58 +20,57 @@ static void addMember(sql::Connection* con) {
     }
 
     try {
-        std::string sql =
-            "INSERT INTO member (full_name, email, phone, membership_date, status)"
-            " VALUES (?, ?, ?, " + std::string(date.empty() ? "CURRENT_DATE" : "?") + ", ?)";
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(sql));
-        pstmt->setString(1, name);
-        email.empty() ? pstmt->setNull(2, 0) : pstmt->setString(2, email);
-        phone.empty() ? pstmt->setNull(3, 0) : pstmt->setString(3, phone);
-        int next = 4;
-        if (!date.empty()) { pstmt->setString(next++, date); }
-        pstmt->setString(next, status);
-        pstmt->executeUpdate();
+        mysqlx::Value emailVal = email.empty() ? mysqlx::nullvalue : mysqlx::Value(email);
+        mysqlx::Value phoneVal = phone.empty() ? mysqlx::nullvalue : mysqlx::Value(phone);
+
+        if (date.empty()) {
+            sess->sql("INSERT INTO member (full_name, email, phone, status) VALUES (?, ?, ?, ?)")
+                .bind(name, emailVal, phoneVal, status)
+                .execute();
+        } else {
+            sess->sql("INSERT INTO member (full_name, email, phone, membership_date, status) VALUES (?, ?, ?, ?, ?)")
+                .bind(name, emailVal, phoneVal, date, status)
+                .execute();
+        }
         std::cout << "Member added successfully.\n";
-    } catch (sql::SQLException& e) {
-        if (e.getErrorCode() == 1062)
+    } catch (const mysqlx::Error& e) {
+        std::string msg = e.what();
+        if (msg.find("1062") != std::string::npos || msg.find("Duplicate") != std::string::npos)
             std::cout << "Error: Email '" << email << "' is already registered.\n";
         else
-            std::cout << "Database error: " << e.what() << "\n";
+            std::cout << "Database error: " << msg << "\n";
     }
     pressEnterToContinue();
 }
 
-static void editMember(sql::Connection* con) {
+static void editMember(mysqlx::Session* sess) {
     std::cout << "\n--- Edit Member ---\n";
     int id = getIntInput("Enter Member ID to edit: ");
 
     try {
-        std::unique_ptr<sql::PreparedStatement> sel(con->prepareStatement(
-            "SELECT * FROM member WHERE member_id = ?"));
-        sel->setInt(1, id);
-        std::unique_ptr<sql::ResultSet> rs(sel->executeQuery());
-
-        if (!rs->next()) {
+        auto res = sess->sql("SELECT * FROM member WHERE member_id = ?").bind(id).execute();
+        auto row = res.fetchOne();
+        if (!row) {
             std::cout << "Member ID " << id << " not found.\n";
             pressEnterToContinue();
             return;
         }
 
-        std::string curName   = safeStr(rs.get(), "full_name");
-        std::string curEmail  = safeStr(rs.get(), "email");
-        std::string curPhone  = safeStr(rs.get(), "phone");
-        std::string curDate   = safeStr(rs.get(), "membership_date");
-        std::string curStatus = safeStr(rs.get(), "status");
+        std::string curName   = safeStr(row, 1);
+        std::string curEmail  = safeStr(row, 2);
+        std::string curPhone  = safeStr(row, 3);
+        std::string curDate   = safeStr(row, 4);
+        std::string curStatus = safeStr(row, 5);
 
         std::cout << "Current: " << curName << " | " << curEmail
                   << " | Status: " << curStatus << "\n";
         std::cout << "(Leave blank to keep current value)\n\n";
 
-        std::string name   = getStringInput("Full Name    [" + curName   + "]: ", true);
-        std::string email  = getStringInput("Email        [" + curEmail  + "]: ", true);
-        std::string phone  = getStringInput("Phone        [" + curPhone  + "]: ", true);
-        std::string date   = getStringInput("Member Date  [" + curDate   + "]: ", true);
-        std::string status = getStringInput("Status       [" + curStatus + "] (active/suspended): ", true);
+        std::string name   = getStringInput("Full Name   [" + curName   + "]: ", true);
+        std::string email  = getStringInput("Email       [" + curEmail  + "]: ", true);
+        std::string phone  = getStringInput("Phone       [" + curPhone  + "]: ", true);
+        std::string date   = getStringInput("Member Date [" + curDate   + "]: ", true);
+        std::string status = getStringInput("Status      [" + curStatus + "] (active/suspended): ", true);
 
         if (name.empty())   name   = curName;
         if (email.empty())  email  = curEmail;
@@ -89,44 +88,39 @@ static void editMember(sql::Connection* con) {
             return;
         }
 
-        std::unique_ptr<sql::PreparedStatement> upd(con->prepareStatement(
-            "UPDATE member SET full_name=?, email=?, phone=?, membership_date=?, status=? WHERE member_id=?"));
-        upd->setString(1, name);
-        email.empty() ? upd->setNull(2, 0) : upd->setString(2, email);
-        phone.empty() ? upd->setNull(3, 0) : upd->setString(3, phone);
-        upd->setString(4, date);
-        upd->setString(5, status);
-        upd->setInt(6, id);
-        upd->executeUpdate();
+        mysqlx::Value emailVal = email.empty() ? mysqlx::nullvalue : mysqlx::Value(email);
+        mysqlx::Value phoneVal = phone.empty() ? mysqlx::nullvalue : mysqlx::Value(phone);
+
+        sess->sql("UPDATE member SET full_name=?, email=?, phone=?, membership_date=?, status=? WHERE member_id=?")
+            .bind(name, emailVal, phoneVal, date, status, id)
+            .execute();
         std::cout << "Member updated successfully.\n";
-    } catch (sql::SQLException& e) {
-        if (e.getErrorCode() == 1062)
+    } catch (const mysqlx::Error& e) {
+        std::string msg = e.what();
+        if (msg.find("1062") != std::string::npos || msg.find("Duplicate") != std::string::npos)
             std::cout << "Error: That email is already in use by another member.\n";
         else
-            std::cout << "Database error: " << e.what() << "\n";
+            std::cout << "Database error: " << msg << "\n";
     }
     pressEnterToContinue();
 }
 
-static void deleteMember(sql::Connection* con) {
+static void deleteMember(mysqlx::Session* sess) {
     std::cout << "\n--- Delete Member ---\n";
     int id = getIntInput("Enter Member ID to delete: ");
 
     try {
-        std::unique_ptr<sql::PreparedStatement> sel(con->prepareStatement(
-            "SELECT * FROM member WHERE member_id = ?"));
-        sel->setInt(1, id);
-        std::unique_ptr<sql::ResultSet> rs(sel->executeQuery());
-
-        if (!rs->next()) {
+        auto res = sess->sql("SELECT * FROM member WHERE member_id = ?").bind(id).execute();
+        auto row = res.fetchOne();
+        if (!row) {
             std::cout << "Member ID " << id << " not found.\n";
             pressEnterToContinue();
             return;
         }
 
-        std::cout << "Member: " << safeStr(rs.get(), "full_name")
-                  << " | Email: " << safeStr(rs.get(), "email")
-                  << " | Status: " << safeStr(rs.get(), "status") << "\n";
+        std::cout << "Member: " << safeStr(row, 1)
+                  << " | Email: " << safeStr(row, 2)
+                  << " | Status: " << safeStr(row, 5) << "\n";
 
         if (!getConfirmation("Are you sure? All loan records for this member will also be deleted.")) {
             std::cout << "Delete cancelled.\n";
@@ -134,69 +128,58 @@ static void deleteMember(sql::Connection* con) {
             return;
         }
 
-        std::unique_ptr<sql::PreparedStatement> del(con->prepareStatement(
-            "DELETE FROM member WHERE member_id = ?"));
-        del->setInt(1, id);
-        del->executeUpdate();
+        sess->sql("DELETE FROM member WHERE member_id = ?").bind(id).execute();
         std::cout << "Member deleted successfully.\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-static void searchMember(sql::Connection* con) {
+static void searchMember(mysqlx::Session* sess) {
     std::cout << "\n--- Search Members ---\n";
     std::string kw = getStringInput("Search by name or email (blank = show all): ", true);
 
     try {
         std::string q = "%" + kw + "%";
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-            "SELECT * FROM member WHERE full_name LIKE ? OR email LIKE ? ORDER BY member_id"));
-        pstmt->setString(1, q);
-        pstmt->setString(2, q);
-        std::unique_ptr<sql::ResultSet> rs(pstmt->executeQuery());
+        auto res = sess->sql(
+            "SELECT * FROM member WHERE full_name LIKE ? OR email LIKE ? ORDER BY member_id")
+            .bind(q, q).execute();
 
         std::vector<int> w = {4, 26, 24, 14, 12, 10};
         printTableHeader({"ID", "Full Name", "Email", "Phone", "Join Date", "Status"}, w);
 
         int count = 0;
-        while (rs->next()) {
+        while (auto row = res.fetchOne()) {
             printRow({
-                std::to_string(rs->getInt("member_id")),
-                safeStr(rs.get(), "full_name"),
-                safeStr(rs.get(), "email"),
-                safeStr(rs.get(), "phone"),
-                safeStr(rs.get(), "membership_date"),
-                safeStr(rs.get(), "status")
+                safeInt(row, 0), safeStr(row, 1), safeStr(row, 2),
+                safeStr(row, 3), safeStr(row, 4), safeStr(row, 5)
             }, w);
             count++;
         }
         printSeparator(w);
         std::cout << count << " result(s) found.\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-void listMembers(sql::Connection* con) {
+void listMembers(mysqlx::Session* sess) {
     try {
-        std::unique_ptr<sql::Statement> stmt(con->createStatement());
-        std::unique_ptr<sql::ResultSet> rs(stmt->executeQuery(
-            "SELECT member_id, full_name, status FROM member ORDER BY member_id"));
+        auto res = sess->sql(
+            "SELECT member_id, full_name, status FROM member ORDER BY member_id").execute();
         std::cout << "\nRegistered Members:\n";
-        while (rs->next()) {
-            std::cout << "  [" << rs->getInt("member_id") << "] "
-                      << safeStr(rs.get(), "full_name")
-                      << " (" << safeStr(rs.get(), "status") << ")\n";
+        while (auto row = res.fetchOne()) {
+            std::cout << "  [" << safeInt(row, 0) << "] "
+                      << safeStr(row, 1) << " (" << safeStr(row, 2) << ")\n";
         }
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Error loading members: " << e.what() << "\n";
     }
 }
 
-void manageMembers(sql::Connection* con) {
+void manageMembers(mysqlx::Session* sess) {
     while (true) {
         printAppHeader();
         std::cout << " Manage Members\n";
@@ -209,10 +192,10 @@ void manageMembers(sql::Connection* con) {
         std::cout << "----------------------------------------------\n";
 
         switch (getMenuChoice(0, 4)) {
-            case 1: addMember(con);    break;
-            case 2: editMember(con);   break;
-            case 3: deleteMember(con); break;
-            case 4: searchMember(con); break;
+            case 1: addMember(sess);    break;
+            case 2: editMember(sess);   break;
+            case 3: deleteMember(sess); break;
+            case 4: searchMember(sess); break;
             case 0: return;
         }
     }

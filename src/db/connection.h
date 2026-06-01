@@ -1,27 +1,26 @@
 #pragma once
 #include <string>
-#include <mysql_driver.h>
-#include <mysql_connection.h>
-#include <cppconn/connection.h>
-#include <cppconn/statement.h>
-#include <cppconn/prepared_statement.h>
-#include <cppconn/resultset.h>
-#include <cppconn/exception.h>
+#include <mysqlx/xdevapi.h>
 
-inline const std::string DB_HOST = "tcp://127.0.0.1:3306";
+// Connection settings — must match docker-compose.yml
+inline const std::string DB_HOST = "127.0.0.1";
+inline const int         DB_PORT = 33060;          // MySQL X Protocol port
 inline const std::string DB_NAME = "khazanah_ilmu";
 inline const std::string DB_USER = "kilms_user";
 inline const std::string DB_PASS = "kilms_pass";
 
-sql::Connection* dbConnect();
+// Returns a heap-allocated Session. Caller owns it (delete when done).
+// Returns nullptr on failure (error already printed).
+mysqlx::Session* dbConnect();
 
-// Helpers for nullable columns
-inline std::string safeStr(sql::ResultSet* rs, const std::string& col) {
-    if (rs->isNull(col)) return "";
-    return std::string(rs->getString(col));
+// ── Helpers for nullable row values ────────────────────────────────────────
+
+inline std::string safeStr(mysqlx::Row& row, int col) {
+    if (row[col].isNull()) return "";
+    return row[col].get<std::string>();
 }
 
-inline std::string safeInt(sql::ResultSet* rs, const std::string& col) {
-    if (rs->isNull(col)) return "";
-    return std::to_string(rs->getInt(col));
+inline std::string safeInt(mysqlx::Row& row, int col) {
+    if (row[col].isNull()) return "";
+    return std::to_string(row[col].get<int>());
 }

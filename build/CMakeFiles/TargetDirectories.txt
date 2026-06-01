@@ -1,0 +1,3 @@
+/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles/kilms.dir
+/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles/edit_cache.dir
+/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles/rebuild_cache.dir

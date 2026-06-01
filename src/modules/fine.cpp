@@ -8,103 +8,97 @@
 #include <iomanip>
 #include <sstream>
 
-static void addFine(sql::Connection* con) {
+static void addFine(mysqlx::Session* sess) {
     std::cout << "\n--- Add Fine ---\n";
-
-    listLoans(con);
+    listLoans(sess);
     int loanId = getIntInput("\nLoan ID to attach fine to: ");
 
-    // Verify loan exists and has no fine already
     try {
-        std::unique_ptr<sql::PreparedStatement> chk(con->prepareStatement(
-            "SELECT fine_id FROM fine WHERE loan_id = ?"));
-        chk->setInt(1, loanId);
-        std::unique_ptr<sql::ResultSet> rs(chk->executeQuery());
-        if (rs->next()) {
+        auto res = sess->sql("SELECT fine_id FROM fine WHERE loan_id = ?").bind(loanId).execute();
+        auto row = res.fetchOne();
+        if (row) {
             std::cout << "Error: Loan ID " << loanId << " already has a fine (Fine ID "
-                      << rs->getInt("fine_id") << "). Edit that fine instead.\n";
+                      << row[0].get<int>() << "). Edit that fine instead.\n";
             pressEnterToContinue();
             return;
         }
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
         pressEnterToContinue();
         return;
     }
 
-    double amount     = getDoubleInput("Fine Amount (RM): ");
-    std::string paid  = getStringInput("Paid Status (unpaid/paid) [default: unpaid]: ", true);
-    std::string date  = getStringInput("Fine Date (YYYY-MM-DD) [blank = today]: ", true);
+    double amount    = getDoubleInput("Fine Amount (RM): ");
+    std::string paid = getStringInput("Paid Status (unpaid/paid) [default: unpaid]: ", true);
+    std::string date = getStringInput("Fine Date (YYYY-MM-DD) [blank = today]: ", true);
 
     if (paid.empty()) paid = "unpaid";
     if (paid != "unpaid" && paid != "paid") {
-        std::cout << "Invalid paid status. Defaulting to 'unpaid'.\n";
+        std::cout << "Invalid status. Defaulting to 'unpaid'.\n";
         paid = "unpaid";
     }
 
     try {
-        std::string sql =
-            "INSERT INTO fine (loan_id, amount, paid_status, fine_date) VALUES (?, ?, ?, "
-            + std::string(date.empty() ? "CURRENT_DATE" : "?") + ")";
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(sql));
-        pstmt->setInt(1, loanId);
-        pstmt->setDouble(2, amount);
-        pstmt->setString(3, paid);
-        if (!date.empty()) pstmt->setString(4, date);
-        pstmt->executeUpdate();
+        if (date.empty()) {
+            sess->sql("INSERT INTO fine (loan_id, amount, paid_status) VALUES (?, ?, ?)")
+                .bind(loanId, amount, paid).execute();
+        } else {
+            sess->sql("INSERT INTO fine (loan_id, amount, paid_status, fine_date) VALUES (?, ?, ?, ?)")
+                .bind(loanId, amount, paid, date).execute();
+        }
         std::cout << "Fine added successfully.\n";
-    } catch (sql::SQLException& e) {
-        if (e.getErrorCode() == 1452)
+    } catch (const mysqlx::Error& e) {
+        std::string msg = e.what();
+        if (msg.find("1452") != std::string::npos)
             std::cout << "Error: Loan ID " << loanId << " does not exist.\n";
         else
-            std::cout << "Database error: " << e.what() << "\n";
+            std::cout << "Database error: " << msg << "\n";
     }
     pressEnterToContinue();
 }
 
-static void editFine(sql::Connection* con) {
+static void editFine(mysqlx::Session* sess) {
     std::cout << "\n--- Edit Fine ---\n";
     int id = getIntInput("Enter Fine ID to edit: ");
 
     try {
-        std::unique_ptr<sql::PreparedStatement> sel(con->prepareStatement(
-            "SELECT f.*, m.full_name, b.title"
+        auto res = sess->sql(
+            "SELECT f.fine_id, f.loan_id, f.amount, f.paid_status, f.fine_date,"
+            " m.full_name, b.title"
             " FROM fine f"
             " JOIN loan l   ON f.loan_id   = l.loan_id"
             " JOIN member m ON l.member_id = m.member_id"
-            " JOIN book b   ON l.book_id   = b.book_id"
-            " WHERE f.fine_id = ?"));
-        sel->setInt(1, id);
-        std::unique_ptr<sql::ResultSet> rs(sel->executeQuery());
-
-        if (!rs->next()) {
+            " JOIN book   b ON l.book_id   = b.book_id"
+            " WHERE f.fine_id = ?").bind(id).execute();
+        auto row = res.fetchOne();
+        if (!row) {
             std::cout << "Fine ID " << id << " not found.\n";
             pressEnterToContinue();
             return;
         }
 
         std::ostringstream amtStream;
-        amtStream << std::fixed << std::setprecision(2) << rs->getDouble("amount");
+        amtStream << std::fixed << std::setprecision(2) << row[2].get<double>();
         std::string curAmount = amtStream.str();
-        std::string curPaid   = safeStr(rs.get(), "paid_status");
-        std::string curDate   = safeStr(rs.get(), "fine_date");
+        std::string curPaid   = safeStr(row, 3);
+        std::string curDate   = safeStr(row, 4);
 
-        std::cout << "Fine for: " << safeStr(rs.get(), "full_name")
-                  << " | Book: " << safeStr(rs.get(), "title") << "\n";
-        std::cout << "Amount: RM" << curAmount << " | Status: " << curPaid
+        std::cout << "Fine for: " << safeStr(row, 5)
+                  << " | Book: " << safeStr(row, 6) << "\n";
+        std::cout << "Amount: RM" << curAmount
+                  << " | Status: " << curPaid
                   << " | Date: " << curDate << "\n";
         std::cout << "(Leave blank to keep current value)\n\n";
 
-        std::string amount = getStringInput("Amount  [" + curAmount + "]: ", true);
-        std::string paid   = getStringInput("Status  [" + curPaid   + "] (unpaid/paid): ", true);
-        std::string date   = getStringInput("Date    [" + curDate   + "]: ", true);
+        std::string amount = getStringInput("Amount [" + curAmount + "]: ", true);
+        std::string paid   = getStringInput("Status [" + curPaid   + "] (unpaid/paid): ", true);
+        std::string date   = getStringInput("Date   [" + curDate   + "]: ", true);
 
         if (amount.empty()) amount = curAmount;
         if (paid.empty())   paid   = curPaid;
         if (date.empty())   date   = curDate;
-
         if (paid != "unpaid" && paid != "paid") {
-            std::cout << "Invalid paid status. Keeping '" << curPaid << "'.\n";
+            std::cout << "Invalid status. Keeping '" << curPaid << "'.\n";
             paid = curPaid;
         }
 
@@ -114,43 +108,36 @@ static void editFine(sql::Connection* con) {
             return;
         }
 
-        std::unique_ptr<sql::PreparedStatement> upd(con->prepareStatement(
-            "UPDATE fine SET amount=?, paid_status=?, fine_date=? WHERE fine_id=?"));
-        upd->setDouble(1, std::stod(amount));
-        upd->setString(2, paid);
-        upd->setString(3, date);
-        upd->setInt(4, id);
-        upd->executeUpdate();
+        sess->sql("UPDATE fine SET amount=?, paid_status=?, fine_date=? WHERE fine_id=?")
+            .bind(std::stod(amount), paid, date, id).execute();
         std::cout << "Fine updated successfully.\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-static void deleteFine(sql::Connection* con) {
+static void deleteFine(mysqlx::Session* sess) {
     std::cout << "\n--- Delete Fine ---\n";
     int id = getIntInput("Enter Fine ID to delete: ");
 
     try {
-        std::unique_ptr<sql::PreparedStatement> sel(con->prepareStatement(
+        auto res = sess->sql(
             "SELECT f.amount, f.paid_status, m.full_name"
             " FROM fine f"
             " JOIN loan l   ON f.loan_id   = l.loan_id"
             " JOIN member m ON l.member_id = m.member_id"
-            " WHERE f.fine_id = ?"));
-        sel->setInt(1, id);
-        std::unique_ptr<sql::ResultSet> rs(sel->executeQuery());
-
-        if (!rs->next()) {
+            " WHERE f.fine_id = ?").bind(id).execute();
+        auto row = res.fetchOne();
+        if (!row) {
             std::cout << "Fine ID " << id << " not found.\n";
             pressEnterToContinue();
             return;
         }
 
-        std::cout << "Fine: RM" << std::fixed << std::setprecision(2) << rs->getDouble("amount")
-                  << " | Member: " << safeStr(rs.get(), "full_name")
-                  << " | Status: " << safeStr(rs.get(), "paid_status") << "\n";
+        std::cout << "Fine: RM" << std::fixed << std::setprecision(2) << row[0].get<double>()
+                  << " | Member: " << safeStr(row, 2)
+                  << " | Status: " << safeStr(row, 1) << "\n";
 
         if (!getConfirmation("Are you sure you want to delete this fine?")) {
             std::cout << "Delete cancelled.\n";
@@ -158,18 +145,15 @@ static void deleteFine(sql::Connection* con) {
             return;
         }
 
-        std::unique_ptr<sql::PreparedStatement> del(con->prepareStatement(
-            "DELETE FROM fine WHERE fine_id = ?"));
-        del->setInt(1, id);
-        del->executeUpdate();
+        sess->sql("DELETE FROM fine WHERE fine_id = ?").bind(id).execute();
         std::cout << "Fine deleted successfully.\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-static void searchFine(sql::Connection* con) {
+static void searchFine(mysqlx::Session* sess) {
     std::cout << "\n--- Search Fines ---\n";
     std::cout << " 1. Show all fines\n";
     std::cout << " 2. Show unpaid fines only\n";
@@ -177,7 +161,7 @@ static void searchFine(sql::Connection* con) {
     std::cout << " 4. Search by member name\n";
     int choice = getMenuChoice(1, 4);
 
-    std::string baseQuery =
+    std::string base =
         "SELECT f.fine_id, f.loan_id, m.full_name, b.title,"
         " f.amount, f.paid_status, f.fine_date"
         " FROM fine f"
@@ -190,53 +174,42 @@ static void searchFine(sql::Connection* con) {
         printTableHeader({"ID", "Loan", "Member", "Book", "Amount", "Status", "Fine Date"}, w);
 
         int count = 0;
-        auto printResult = [&](sql::ResultSet* rs) {
-            while (rs->next()) {
+        auto printRows = [&](mysqlx::SqlResult& r) {
+            while (auto row = r.fetchOne()) {
                 std::ostringstream amt;
-                amt << "RM" << std::fixed << std::setprecision(2) << rs->getDouble("amount");
+                amt << "RM" << std::fixed << std::setprecision(2) << row[4].get<double>();
                 printRow({
-                    std::to_string(rs->getInt("fine_id")),
-                    std::to_string(rs->getInt("loan_id")),
-                    safeStr(rs, "full_name"),
-                    safeStr(rs, "title"),
-                    amt.str(),
-                    safeStr(rs, "paid_status"),
-                    safeStr(rs, "fine_date")
+                    safeInt(row, 0), safeInt(row, 1),
+                    safeStr(row, 2), safeStr(row, 3),
+                    amt.str(), safeStr(row, 5), safeStr(row, 6)
                 }, w);
                 count++;
             }
         };
 
         if (choice == 1) {
-            std::unique_ptr<sql::Statement> stmt(con->createStatement());
-            std::unique_ptr<sql::ResultSet> rs(stmt->executeQuery(
-                baseQuery + " ORDER BY f.fine_id"));
-            printResult(rs.get());
+            auto res = sess->sql(base + " ORDER BY f.fine_id").execute();
+            printRows(res);
         } else if (choice == 2 || choice == 3) {
             std::string st = (choice == 2) ? "unpaid" : "paid";
-            std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-                baseQuery + " WHERE f.paid_status = ? ORDER BY f.fine_id"));
-            pstmt->setString(1, st);
-            std::unique_ptr<sql::ResultSet> rs(pstmt->executeQuery());
-            printResult(rs.get());
+            auto res = sess->sql(base + " WHERE f.paid_status = ? ORDER BY f.fine_id").bind(st).execute();
+            printRows(res);
         } else {
             std::string kw = getStringInput("Member name: ");
-            std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-                baseQuery + " WHERE m.full_name LIKE ? ORDER BY f.fine_id"));
-            pstmt->setString(1, "%" + kw + "%");
-            std::unique_ptr<sql::ResultSet> rs(pstmt->executeQuery());
-            printResult(rs.get());
+            auto res = sess->sql(base + " WHERE m.full_name LIKE ? ORDER BY f.fine_id")
+                           .bind("%" + kw + "%").execute();
+            printRows(res);
         }
 
         printSeparator(w);
         std::cout << count << " result(s) found.\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-void manageFines(sql::Connection* con) {
+void manageFines(mysqlx::Session* sess) {
     while (true) {
         printAppHeader();
         std::cout << " Manage Fines\n";
@@ -249,10 +222,10 @@ void manageFines(sql::Connection* con) {
         std::cout << "----------------------------------------------\n";
 
         switch (getMenuChoice(0, 4)) {
-            case 1: addFine(con);    break;
-            case 2: editFine(con);   break;
-            case 3: deleteFine(con); break;
-            case 4: searchFine(con); break;
+            case 1: addFine(sess);    break;
+            case 2: editFine(sess);   break;
+            case 3: deleteFine(sess); break;
+            case 4: searchFine(sess); break;
             case 0: return;
         }
     }

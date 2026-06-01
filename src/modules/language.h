@@ -1,5 +1,5 @@
 #pragma once
 #include "../db/connection.h"
 
-void listLanguages(sql::Connection* con);
-void manageLanguages(sql::Connection* con);
+void listLanguages(mysqlx::Session* sess);
+void manageLanguages(mysqlx::Session* sess);

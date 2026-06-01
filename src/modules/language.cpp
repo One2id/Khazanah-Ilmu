@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 
-static void addLanguage(sql::Connection* con) {
+static void addLanguage(mysqlx::Session* sess) {
     std::cout << "\n--- Add Language ---\n";
     std::string code   = getStringInput("Language Code (e.g. AR, MS, ZH): ");
     std::string name   = getStringInput("Language Name: ");
@@ -13,43 +13,42 @@ static void addLanguage(sql::Connection* con) {
     std::string region = getStringInput("World Region (e.g. Middle East) [optional]: ", true);
 
     try {
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-            "INSERT INTO language (language_code, language_name, script_type, world_region) VALUES (?, ?, ?, ?)"));
-        pstmt->setString(1, code);
-        pstmt->setString(2, name);
-        script.empty() ? pstmt->setNull(3, 0) : pstmt->setString(3, script);
-        region.empty() ? pstmt->setNull(4, 0) : pstmt->setString(4, region);
-        pstmt->executeUpdate();
+        sess->sql(
+            "INSERT INTO language (language_code, language_name, script_type, world_region)"
+            " VALUES (?, ?, ?, ?)")
+            .bind(code,
+                  name,
+                  script.empty() ? mysqlx::nullvalue : mysqlx::Value(script),
+                  region.empty() ? mysqlx::nullvalue : mysqlx::Value(region))
+            .execute();
         std::cout << "Language added successfully.\n";
-    } catch (sql::SQLException& e) {
-        if (e.getErrorCode() == 1062)
+    } catch (const mysqlx::Error& e) {
+        std::string msg = e.what();
+        if (msg.find("1062") != std::string::npos || msg.find("Duplicate") != std::string::npos)
             std::cout << "Error: Language code '" << code << "' already exists.\n";
         else
-            std::cout << "Database error: " << e.what() << "\n";
+            std::cout << "Database error: " << msg << "\n";
     }
     pressEnterToContinue();
 }
 
-static void editLanguage(sql::Connection* con) {
+static void editLanguage(mysqlx::Session* sess) {
     std::cout << "\n--- Edit Language ---\n";
     int id = getIntInput("Enter Language ID to edit: ");
 
     try {
-        std::unique_ptr<sql::PreparedStatement> sel(con->prepareStatement(
-            "SELECT * FROM language WHERE language_id = ?"));
-        sel->setInt(1, id);
-        std::unique_ptr<sql::ResultSet> rs(sel->executeQuery());
-
-        if (!rs->next()) {
+        auto res = sess->sql("SELECT * FROM language WHERE language_id = ?").bind(id).execute();
+        auto row = res.fetchOne();
+        if (!row) {
             std::cout << "Language ID " << id << " not found.\n";
             pressEnterToContinue();
             return;
         }
 
-        std::string curCode   = safeStr(rs.get(), "language_code");
-        std::string curName   = safeStr(rs.get(), "language_name");
-        std::string curScript = safeStr(rs.get(), "script_type");
-        std::string curRegion = safeStr(rs.get(), "world_region");
+        std::string curCode   = safeStr(row, 1);
+        std::string curName   = safeStr(row, 2);
+        std::string curScript = safeStr(row, 3);
+        std::string curRegion = safeStr(row, 4);
 
         std::cout << "Current: [" << curCode << "] " << curName << "\n";
         std::cout << "(Leave blank to keep current value)\n\n";
@@ -70,42 +69,30 @@ static void editLanguage(sql::Connection* con) {
             return;
         }
 
-        std::unique_ptr<sql::PreparedStatement> upd(con->prepareStatement(
-            "UPDATE language SET language_code=?, language_name=?, script_type=?, world_region=? WHERE language_id=?"));
-        upd->setString(1, code);
-        upd->setString(2, name);
-        upd->setString(3, script);
-        upd->setString(4, region);
-        upd->setInt(5, id);
-        upd->executeUpdate();
+        sess->sql("UPDATE language SET language_code=?, language_name=?, script_type=?, world_region=? WHERE language_id=?")
+            .bind(code, name, script, region, id)
+            .execute();
         std::cout << "Language updated successfully.\n";
-    } catch (sql::SQLException& e) {
-        if (e.getErrorCode() == 1062)
-            std::cout << "Error: Language code already exists.\n";
-        else
-            std::cout << "Database error: " << e.what() << "\n";
+    } catch (const mysqlx::Error& e) {
+        std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-static void deleteLanguage(sql::Connection* con) {
+static void deleteLanguage(mysqlx::Session* sess) {
     std::cout << "\n--- Delete Language ---\n";
     int id = getIntInput("Enter Language ID to delete: ");
 
     try {
-        std::unique_ptr<sql::PreparedStatement> sel(con->prepareStatement(
-            "SELECT * FROM language WHERE language_id = ?"));
-        sel->setInt(1, id);
-        std::unique_ptr<sql::ResultSet> rs(sel->executeQuery());
-
-        if (!rs->next()) {
+        auto res = sess->sql("SELECT * FROM language WHERE language_id = ?").bind(id).execute();
+        auto row = res.fetchOne();
+        if (!row) {
             std::cout << "Language ID " << id << " not found.\n";
             pressEnterToContinue();
             return;
         }
 
-        std::cout << "Language: [" << safeStr(rs.get(), "language_code") << "] "
-                  << safeStr(rs.get(), "language_name") << "\n";
+        std::cout << "Language: [" << safeStr(row, 1) << "] " << safeStr(row, 2) << "\n";
 
         if (!getConfirmation("Are you sure you want to delete this language?")) {
             std::cout << "Delete cancelled.\n";
@@ -113,71 +100,64 @@ static void deleteLanguage(sql::Connection* con) {
             return;
         }
 
-        std::unique_ptr<sql::PreparedStatement> del(con->prepareStatement(
-            "DELETE FROM language WHERE language_id = ?"));
-        del->setInt(1, id);
-        del->executeUpdate();
+        sess->sql("DELETE FROM language WHERE language_id = ?").bind(id).execute();
         std::cout << "Language deleted successfully.\n";
-    } catch (sql::SQLException& e) {
-        if (e.getErrorCode() == 1451)
+    } catch (const mysqlx::Error& e) {
+        std::string msg = e.what();
+        if (msg.find("1451") != std::string::npos)
             std::cout << "Error: Cannot delete — books are still linked to this language.\n";
         else
-            std::cout << "Database error: " << e.what() << "\n";
+            std::cout << "Database error: " << msg << "\n";
     }
     pressEnterToContinue();
 }
 
-static void searchLanguage(sql::Connection* con) {
+static void searchLanguage(mysqlx::Session* sess) {
     std::cout << "\n--- Search Languages ---\n";
     std::string kw = getStringInput("Search by name or code (blank = show all): ", true);
 
     try {
         std::string q = "%" + kw + "%";
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-            "SELECT * FROM language WHERE language_name LIKE ? OR language_code LIKE ? ORDER BY language_id"));
-        pstmt->setString(1, q);
-        pstmt->setString(2, q);
-        std::unique_ptr<sql::ResultSet> rs(pstmt->executeQuery());
+        auto res = sess->sql(
+            "SELECT * FROM language WHERE language_name LIKE ? OR language_code LIKE ? ORDER BY language_id")
+            .bind(q, q).execute();
 
         std::vector<int> w = {4, 6, 22, 14, 20};
         printTableHeader({"ID", "Code", "Name", "Script", "Region"}, w);
 
         int count = 0;
-        while (rs->next()) {
+        while (auto row = res.fetchOne()) {
             printRow({
-                std::to_string(rs->getInt("language_id")),
-                safeStr(rs.get(), "language_code"),
-                safeStr(rs.get(), "language_name"),
-                safeStr(rs.get(), "script_type"),
-                safeStr(rs.get(), "world_region")
+                safeInt(row, 0),
+                safeStr(row, 1),
+                safeStr(row, 2),
+                safeStr(row, 3),
+                safeStr(row, 4)
             }, w);
             count++;
         }
         printSeparator(w);
         std::cout << count << " result(s) found.\n";
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Database error: " << e.what() << "\n";
     }
     pressEnterToContinue();
 }
 
-void listLanguages(sql::Connection* con) {
+void listLanguages(mysqlx::Session* sess) {
     try {
-        std::unique_ptr<sql::Statement> stmt(con->createStatement());
-        std::unique_ptr<sql::ResultSet> rs(stmt->executeQuery(
-            "SELECT language_id, language_code, language_name FROM language ORDER BY language_id"));
+        auto res = sess->sql("SELECT language_id, language_code, language_name FROM language ORDER BY language_id").execute();
         std::cout << "\nAvailable Languages:\n";
-        while (rs->next()) {
-            std::cout << "  [" << rs->getInt("language_id") << "] "
-                      << safeStr(rs.get(), "language_code") << " - "
-                      << safeStr(rs.get(), "language_name") << "\n";
+        while (auto row = res.fetchOne()) {
+            std::cout << "  [" << safeInt(row, 0) << "] "
+                      << safeStr(row, 1) << " - " << safeStr(row, 2) << "\n";
         }
-    } catch (sql::SQLException& e) {
+    } catch (const mysqlx::Error& e) {
         std::cout << "Error loading languages: " << e.what() << "\n";
     }
 }
 
-void manageLanguages(sql::Connection* con) {
+void manageLanguages(mysqlx::Session* sess) {
     while (true) {
         printAppHeader();
         std::cout << " Manage Languages\n";
@@ -190,10 +170,10 @@ void manageLanguages(sql::Connection* con) {
         std::cout << "----------------------------------------------\n";
 
         switch (getMenuChoice(0, 4)) {
-            case 1: addLanguage(con);    break;
-            case 2: editLanguage(con);   break;
-            case 3: deleteLanguage(con); break;
-            case 4: searchLanguage(con); break;
+            case 1: addLanguage(sess);    break;
+            case 2: editLanguage(sess);   break;
+            case 3: deleteLanguage(sess); break;
+            case 4: searchLanguage(sess); break;
             case 0: return;
         }
     }
