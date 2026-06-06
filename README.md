@@ -11,17 +11,10 @@ docker compose up -d
 
 ### 2. Build the application
 
-**Linux / macOS (CMake):**
 ```bash
 mkdir build && cd build
 cmake ..
 make
-./kilms
-```
-
-**Windows (g++ direct):**
-```bash
-g++ -std=c++17 src/*.cpp src/**/*.cpp -o kilms -lmysqlcppconn -I/path/to/connector/include
 ```
 
 ### 3. Run
@@ -34,21 +27,16 @@ g++ -std=c++17 src/*.cpp src/**/*.cpp -o kilms -lmysqlcppconn -I/path/to/connect
 | Dependency | Version |
 |---|---|
 | Docker + Docker Compose | Any recent version |
-| MySQL Connector/C++ | 8.x (`mysqlcppconn`) |
+| MySQL Connector/C++ | 9.x (`mysqlcppconnx`) — X DevAPI |
 | C++ compiler | C++17 or later |
 | CMake | 3.16+ |
 
-**Install MySQL Connector/C++ on Ubuntu/Debian:**
-```bash
-sudo apt install libmysqlcppconn-dev
-```
-
-**Install on macOS (Homebrew):**
+**Install MySQL Connector/C++ on macOS (Homebrew):**
 ```bash
 brew install mysql-connector-c++
 ```
 
-## Database management
+## Database Management
 
 | Task | Command |
 |---|---|
@@ -65,12 +53,13 @@ brew install mysql-connector-c++
 - **Loans** — borrowing records with due-date tracking
 - **Fines** — overdue fine records (amount entered manually by staff)
 
-## Connection details
+## Connection Details
 
 | Field | Value |
 |---|---|
 | Host | 127.0.0.1 |
-| Port | 3306 |
+| Port (C++ app) | 33060 (X Protocol) |
+| Port (TablePlus / phpMyAdmin) | 3306 (Classic) |
 | Database | khazanah_ilmu |
 | User | kilms_user |
 | Password | kilms_pass |
