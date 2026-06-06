@@ -48,7 +48,10 @@ static void editMember(mysqlx::Session* sess) {
     int id = getIntInput("Enter Member ID to edit: ");
 
     try {
-        auto res = sess->sql("SELECT * FROM member WHERE member_id = ?").bind(id).execute();
+        auto res = sess->sql(
+            "SELECT member_id, full_name, email, phone,"
+            " DATE_FORMAT(membership_date, '%Y-%m-%d') AS membership_date,"
+            " status FROM member WHERE member_id = ?").bind(id).execute();
         auto row = res.fetchOne();
         if (!row) {
             std::cout << "Member ID " << id << " not found.\n";
@@ -110,7 +113,10 @@ static void deleteMember(mysqlx::Session* sess) {
     int id = getIntInput("Enter Member ID to delete: ");
 
     try {
-        auto res = sess->sql("SELECT * FROM member WHERE member_id = ?").bind(id).execute();
+        auto res = sess->sql(
+            "SELECT member_id, full_name, email, phone,"
+            " DATE_FORMAT(membership_date, '%Y-%m-%d') AS membership_date,"
+            " status FROM member WHERE member_id = ?").bind(id).execute();
         auto row = res.fetchOne();
         if (!row) {
             std::cout << "Member ID " << id << " not found.\n";
@@ -143,10 +149,12 @@ static void searchMember(mysqlx::Session* sess) {
     try {
         std::string q = "%" + kw + "%";
         auto res = sess->sql(
-            "SELECT * FROM member WHERE full_name LIKE ? OR email LIKE ? ORDER BY member_id")
+            "SELECT member_id, full_name, email, phone,"
+            " DATE_FORMAT(membership_date, '%Y-%m-%d') AS membership_date,"
+            " status FROM member WHERE full_name LIKE ? OR email LIKE ? ORDER BY member_id")
             .bind(q, q).execute();
 
-        std::vector<int> w = {4, 26, 24, 14, 12, 10};
+        std::vector<int> w = {4, 22, 22, 13, 10, 10};
         printTableHeader({"ID", "Full Name", "Email", "Phone", "Join Date", "Status"}, w);
 
         int count = 0;

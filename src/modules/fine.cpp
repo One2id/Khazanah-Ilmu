@@ -63,7 +63,8 @@ static void editFine(mysqlx::Session* sess) {
 
     try {
         auto res = sess->sql(
-            "SELECT f.fine_id, f.loan_id, f.amount, f.paid_status, f.fine_date,"
+            "SELECT f.fine_id, f.loan_id, f.amount, f.paid_status,"
+            " DATE_FORMAT(f.fine_date, '%Y-%m-%d') AS fine_date,"
             " m.full_name, b.title"
             " FROM fine f"
             " JOIN loan l   ON f.loan_id   = l.loan_id"
@@ -163,7 +164,8 @@ static void searchFine(mysqlx::Session* sess) {
 
     std::string base =
         "SELECT f.fine_id, f.loan_id, m.full_name, b.title,"
-        " f.amount, f.paid_status, f.fine_date"
+        " f.amount, f.paid_status,"
+        " DATE_FORMAT(f.fine_date, '%Y-%m-%d') AS fine_date"
         " FROM fine f"
         " JOIN loan l   ON f.loan_id   = l.loan_id"
         " JOIN member m ON l.member_id = m.member_id"

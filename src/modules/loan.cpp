@@ -6,6 +6,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <ctime>
 
 static int getCopiesAvailable(mysqlx::Session* sess, int bookId) {
     try {
@@ -89,7 +90,10 @@ static void editLoan(mysqlx::Session* sess) {
     try {
         auto res = sess->sql(
             "SELECT l.loan_id, l.book_id, m.full_name, b.title,"
-            " l.loan_date, l.due_date, l.return_date, l.status"
+            " DATE_FORMAT(l.loan_date,   '%Y-%m-%d') AS loan_date,"
+            " DATE_FORMAT(l.due_date,    '%Y-%m-%d') AS due_date,"
+            " DATE_FORMAT(l.return_date, '%Y-%m-%d') AS return_date,"
+            " l.status"
             " FROM loan l"
             " JOIN member m ON l.member_id = m.member_id"
             " JOIN book b   ON l.book_id   = b.book_id"
@@ -124,6 +128,14 @@ static void editLoan(mysqlx::Session* sess) {
         if (status != "active" && status != "returned" && status != "overdue") {
             std::cout << "Invalid status. Keeping '" << curStatus << "'.\n";
             status = curStatus;
+        }
+        // auto-fill return date when marking as returned with no date given
+        if (status == "returned" && returnDate.empty() && curReturnDate.empty()) {
+            auto t = std::time(nullptr);
+            char buf[11];
+            std::strftime(buf, sizeof(buf), "%Y-%m-%d", std::localtime(&t));
+            returnDate = buf;
+            std::cout << "Return date set to today: " << returnDate << "\n";
         }
 
         if (!getConfirmation("Save changes?")) {
@@ -198,7 +210,10 @@ static void searchLoan(mysqlx::Session* sess) {
 
     std::string base =
         "SELECT l.loan_id, m.full_name, b.title,"
-        " l.loan_date, l.due_date, l.return_date, l.status"
+        " DATE_FORMAT(l.loan_date,   '%Y-%m-%d') AS loan_date,"
+        " DATE_FORMAT(l.due_date,    '%Y-%m-%d') AS due_date,"
+        " DATE_FORMAT(l.return_date, '%Y-%m-%d') AS return_date,"
+        " l.status"
         " FROM loan l"
         " JOIN member m ON l.member_id = m.member_id"
         " JOIN book   b ON l.book_id   = b.book_id";
