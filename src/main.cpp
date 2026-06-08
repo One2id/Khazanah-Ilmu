@@ -9,11 +9,29 @@
 #include "modules/loan.h"
 #include "modules/fine.h"
 
-int main() {
+// Opens a fresh session, runs the module, then closes it.
+// Prevents "Can't write message" errors caused by stale session state.
+template<typename Fn>
+static void withSession(Fn fn) {
     mysqlx::Session* sess = dbConnect();
     if (!sess) {
-        std::cerr << "\nFailed to start. Exiting.\n";
-        return 1;
+        std::cout << "Error: Could not connect to database.\n";
+        pressEnterToContinue();
+        return;
+    }
+    fn(sess);
+    delete sess;
+}
+
+int main() {
+    // Verify database is reachable on startup
+    {
+        mysqlx::Session* test = dbConnect();
+        if (!test) {
+            std::cerr << "\nFailed to start. Is Docker running? (docker compose up -d)\n";
+            return 1;
+        }
+        delete test;
     }
 
     while (true) {
@@ -27,17 +45,15 @@ int main() {
         std::cout << " 0. Exit\n";
         std::cout << "----------------------------------------------\n";
 
-        int choice = getMenuChoice(0, 6);
-        switch (choice) {
-            case 1: manageMembers(sess);   break;
-            case 2: manageBooks(sess);     break;
-            case 3: manageAuthors(sess);   break;
-            case 4: manageLanguages(sess); break;
-            case 5: manageLoans(sess);     break;
-            case 6: manageFines(sess);     break;
+        switch (getMenuChoice(0, 6)) {
+            case 1: withSession([](mysqlx::Session* s){ manageMembers(s);   }); break;
+            case 2: withSession([](mysqlx::Session* s){ manageBooks(s);     }); break;
+            case 3: withSession([](mysqlx::Session* s){ manageAuthors(s);   }); break;
+            case 4: withSession([](mysqlx::Session* s){ manageLanguages(s); }); break;
+            case 5: withSession([](mysqlx::Session* s){ manageLoans(s);     }); break;
+            case 6: withSession([](mysqlx::Session* s){ manageFines(s);     }); break;
             case 0:
                 std::cout << "\nGoodbye. Ma'a salama.\n\n";
-                delete sess;
                 return 0;
         }
     }
