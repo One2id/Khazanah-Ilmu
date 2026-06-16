@@ -17,7 +17,14 @@ mysqlx::Session* dbConnect();
 
 inline std::string safeStr(mysqlx::Row& row, int col) {
     if (row[col].isNull()) return "";
-    return row[col].get<std::string>();
+    std::string s = row[col].get<std::string>();
+    // Strip control characters (\r \n etc.) — raw DATE bytes from X DevAPI
+    // can contain these and corrupt the terminal line layout.
+    std::string out;
+    out.reserve(s.size());
+    for (unsigned char c : s)
+        if (c >= 32) out += static_cast<char>(c);
+    return out;
 }
 
 inline std::string safeInt(mysqlx::Row& row, int col) {
