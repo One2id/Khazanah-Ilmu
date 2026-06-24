@@ -32,8 +32,21 @@ static void addLanguage(mysqlx::Session* sess) {
     pressEnterToContinue();
 }
 
+static void showAllLanguages(mysqlx::Session* sess) {
+    try {
+        auto res = sess->sql("SELECT * FROM language ORDER BY language_id").execute();
+        std::vector<int> w = {4, 6, 22, 14, 20};
+        printTableHeader({"ID", "Code", "Name", "Script", "Region"}, w);
+        while (auto row = res.fetchOne())
+            printRow({safeInt(row,0), safeStr(row,1), safeStr(row,2),
+                      safeStr(row,3), safeStr(row,4)}, w);
+        printSeparator(w);
+    } catch (const mysqlx::Error& e) { std::cout << "Error: " << e.what() << "\n"; }
+}
+
 static void editLanguage(mysqlx::Session* sess) {
     std::cout << "\n--- Edit Language ---\n";
+    showAllLanguages(sess);
     int id = getIntInput("Enter Language ID to edit: ");
 
     try {
@@ -81,6 +94,7 @@ static void editLanguage(mysqlx::Session* sess) {
 
 static void deleteLanguage(mysqlx::Session* sess) {
     std::cout << "\n--- Delete Language ---\n";
+    showAllLanguages(sess);
     int id = getIntInput("Enter Language ID to delete: ");
 
     try {

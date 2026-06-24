@@ -64,8 +64,8 @@ static void addLoan(mysqlx::Session* sess) {
         return;
     }
 
-    std::string loanDate = getStringInput("Loan Date (YYYY-MM-DD) [blank = today]: ", true);
-    std::string dueDate  = getStringInput("Due Date  (YYYY-MM-DD): ");
+    std::string loanDate = getDateInput("Loan Date (YYYY-MM-DD) [blank = today]: ", true);
+    std::string dueDate  = getDateInput("Due Date  (YYYY-MM-DD): ");
 
     try {
         if (loanDate.empty()) {
@@ -83,8 +83,30 @@ static void addLoan(mysqlx::Session* sess) {
     pressEnterToContinue();
 }
 
+static void showAllLoans(mysqlx::Session* sess) {
+    try {
+        auto res = sess->sql(
+            "SELECT l.loan_id, m.full_name, b.title,"
+            " DATE_FORMAT(l.loan_date,   '%Y-%m-%d'),"
+            " DATE_FORMAT(l.due_date,    '%Y-%m-%d'),"
+            " DATE_FORMAT(l.return_date, '%Y-%m-%d'),"
+            " l.status"
+            " FROM loan l"
+            " JOIN member m ON l.member_id = m.member_id"
+            " JOIN book   b ON l.book_id   = b.book_id"
+            " ORDER BY l.loan_id").execute();
+        std::vector<int> w = {4, 10, 10, 10, 10, 10, 8};
+        printTableHeader({"ID", "Member", "Book", "Loan Date", "Due Date", "Returned", "Status"}, w);
+        while (auto row = res.fetchOne())
+            printRow({safeInt(row,0), safeStr(row,1), safeStr(row,2),
+                      safeStr(row,3), safeStr(row,4), safeStr(row,5), safeStr(row,6)}, w);
+        printSeparator(w);
+    } catch (const mysqlx::Error& e) { std::cout << "Error: " << e.what() << "\n"; }
+}
+
 static void editLoan(mysqlx::Session* sess) {
     std::cout << "\n--- Edit Loan (process return / update status) ---\n";
+    showAllLoans(sess);
     int id = getIntInput("Enter Loan ID to edit: ");
 
     try {
@@ -119,16 +141,12 @@ static void editLoan(mysqlx::Session* sess) {
         std::cout << "  Status: " << curStatus << "\n";
         std::cout << "(Leave blank to keep current value)\n\n";
 
-        std::string dueDate    = getStringInput("Due Date    [" + curDueDate + "]: ", true);
-        std::string returnDate = getStringInput("Return Date [" + (curReturnDate.empty() ? "none" : curReturnDate) + "]: ", true);
-        std::string status     = getStringInput("Status      [" + curStatus + "] (active/returned/overdue): ", true);
+        std::string dueDate    = getDateInput("Due Date    [" + curDueDate + "] (blank = keep): ", true);
+        std::string returnDate = getDateInput("Return Date [" + (curReturnDate.empty() ? "none" : curReturnDate) + "] (blank = keep): ", true);
+        std::string status     = getEnumInput("Status      [" + curStatus + "] (active/returned/overdue, blank = keep): ",
+                                              {"active", "returned", "overdue"}, true, curStatus);
 
         if (dueDate.empty()) dueDate = curDueDate;
-        if (status.empty())  status  = curStatus;
-        if (status != "active" && status != "returned" && status != "overdue") {
-            std::cout << "Invalid status. Keeping '" << curStatus << "'.\n";
-            status = curStatus;
-        }
         // auto-fill return date when marking as returned with no date given
         if (status == "returned" && returnDate.empty() && curReturnDate.empty()) {
             auto t = std::time(nullptr);
@@ -161,6 +179,7 @@ static void editLoan(mysqlx::Session* sess) {
 
 static void deleteLoan(mysqlx::Session* sess) {
     std::cout << "\n--- Delete Loan ---\n";
+    showAllLoans(sess);
     int id = getIntInput("Enter Loan ID to delete: ");
 
     try {
@@ -218,8 +237,14 @@ static void searchLoan(mysqlx::Session* sess) {
         " JOIN member m ON l.member_id = m.member_id"
         " JOIN book   b ON l.book_id   = b.book_id";
 
+    // Collect input before printing the table so the prompt doesn't interrupt header/rows
+    std::string loanField, loanKw, loanStatus;
+    if (choice == 1) { loanField = "m.full_name"; loanKw = getStringInput("Search member name: "); }
+    else if (choice == 2) { loanField = "b.title"; loanKw = getStringInput("Search book title: "); }
+    else if (choice == 3) { loanStatus = getStringInput("Status (active/returned/overdue): "); }
+
     try {
-        std::vector<int> w = {5, 22, 24, 11, 11, 11, 9};
+        std::vector<int> w = {4, 10, 10, 10, 10, 10, 8};
         printTableHeader({"ID", "Member", "Book", "Loan Date", "Due Date", "Returned", "Status"}, w);
 
         int count = 0;
@@ -238,14 +263,11 @@ static void searchLoan(mysqlx::Session* sess) {
             auto res = sess->sql(base + " ORDER BY l.loan_id").execute();
             printRows(res);
         } else if (choice == 3) {
-            std::string st = getStringInput("Status (active/returned/overdue): ");
-            auto res = sess->sql(base + " WHERE l.status = ? ORDER BY l.loan_id").bind(st).execute();
+            auto res = sess->sql(base + " WHERE l.status = ? ORDER BY l.loan_id").bind(loanStatus).execute();
             printRows(res);
         } else {
-            std::string field = (choice == 1) ? "m.full_name" : "b.title";
-            std::string kw = getStringInput("Search: ");
-            auto res = sess->sql(base + " WHERE " + field + " LIKE ? ORDER BY l.loan_id")
-                           .bind("%" + kw + "%").execute();
+            auto res = sess->sql(base + " WHERE " + loanField + " LIKE ? ORDER BY l.loan_id")
+                           .bind("%" + loanKw + "%").execute();
             printRows(res);
         }
 

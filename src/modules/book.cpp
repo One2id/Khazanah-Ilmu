@@ -48,8 +48,27 @@ static void addBook(mysqlx::Session* sess) {
     pressEnterToContinue();
 }
 
+static void showAllBooks(mysqlx::Session* sess) {
+    try {
+        auto res = sess->sql(
+            "SELECT b.book_id, b.title, a.author_name, l.language_name,"
+            " b.historical_era, b.copies_available"
+            " FROM book b"
+            " LEFT JOIN author   a ON b.author_id   = a.author_id"
+            " LEFT JOIN language l ON b.language_id = l.language_id"
+            " ORDER BY b.book_id").execute();
+        std::vector<int> w = {4, 20, 15, 9, 11, 6};
+        printTableHeader({"ID", "Title", "Author", "Language", "Era", "Copies"}, w);
+        while (auto row = res.fetchOne())
+            printRow({safeInt(row,0), safeStr(row,1), safeStr(row,2),
+                      safeStr(row,3), safeStr(row,4), std::to_string(row[5].get<int>())}, w);
+        printSeparator(w);
+    } catch (const mysqlx::Error& e) { std::cout << "Error: " << e.what() << "\n"; }
+}
+
 static void editBook(mysqlx::Session* sess) {
     std::cout << "\n--- Edit Book ---\n";
+    showAllBooks(sess);
     int id = getIntInput("Enter Book ID to edit: ");
 
     try {
@@ -132,6 +151,7 @@ static void editBook(mysqlx::Session* sess) {
 
 static void deleteBook(mysqlx::Session* sess) {
     std::cout << "\n--- Delete Book ---\n";
+    showAllBooks(sess);
     int id = getIntInput("Enter Book ID to delete: ");
 
     try {
@@ -169,11 +189,13 @@ static void deleteBook(mysqlx::Session* sess) {
 static void searchBook(mysqlx::Session* sess) {
     std::cout << "\n--- Search Books ---\n";
     std::cout << " 1. Search by title\n";
-    std::cout << " 2. Search by language\n";
-    std::cout << " 3. Search by historical era\n";
-    std::cout << " 4. Search by origin country\n";
-    std::cout << " 5. Show all books\n";
-    int choice = getMenuChoice(1, 5);
+    std::cout << " 2. Search by author\n";
+    std::cout << " 3. Search by genre\n";
+    std::cout << " 4. Search by language\n";
+    std::cout << " 5. Search by historical era\n";
+    std::cout << " 6. Search by origin country\n";
+    std::cout << " 7. Show all books\n";
+    int choice = getMenuChoice(1, 7);
 
     std::string baseQuery =
         "SELECT b.book_id, b.title, a.author_name, l.language_name,"
@@ -182,8 +204,21 @@ static void searchBook(mysqlx::Session* sess) {
         " LEFT JOIN author   a ON b.author_id   = a.author_id"
         " LEFT JOIN language l ON b.language_id = l.language_id";
 
+    // Collect search term before printing the table so the prompt doesn't break the header/rows
+    std::string field, kw;
+    if (choice != 7) {
+        switch (choice) {
+            case 1: field = "b.title";          kw = getStringInput("Search title: ");    break;
+            case 2: field = "a.author_name";    kw = getStringInput("Search author: ");   break;
+            case 3: field = "b.genre";          kw = getStringInput("Search genre: ");    break;
+            case 4: field = "l.language_name";  kw = getStringInput("Search language: "); break;
+            case 5: field = "b.historical_era"; kw = getStringInput("Search era: ");      break;
+            case 6: field = "b.origin_country"; kw = getStringInput("Search country: ");  break;
+        }
+    }
+
     try {
-        std::vector<int> w = {4, 28, 22, 12, 14, 7};
+        std::vector<int> w = {4, 20, 15, 9, 11, 6};
         printTableHeader({"ID", "Title", "Author", "Language", "Era", "Copies"}, w);
 
         int count = 0;
@@ -198,17 +233,10 @@ static void searchBook(mysqlx::Session* sess) {
             }
         };
 
-        if (choice == 5) {
+        if (choice == 7) {
             auto res = sess->sql(baseQuery + " ORDER BY b.book_id").execute();
             printRows(res);
         } else {
-            std::string field, kw;
-            switch (choice) {
-                case 1: field = "b.title";          kw = getStringInput("Search title: ");    break;
-                case 2: field = "l.language_name";  kw = getStringInput("Search language: "); break;
-                case 3: field = "b.historical_era"; kw = getStringInput("Search era: ");      break;
-                case 4: field = "b.origin_country"; kw = getStringInput("Search country: "); break;
-            }
             auto res = sess->sql(baseQuery + " WHERE " + field + " LIKE ? ORDER BY b.book_id")
                            .bind("%" + kw + "%").execute();
             printRows(res);

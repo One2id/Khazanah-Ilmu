@@ -2,6 +2,7 @@
 #include "db/connection.h"
 #include "utils/display.h"
 #include "utils/menu.h"
+#include "modules/auth.h"
 #include "modules/member.h"
 #include "modules/book.h"
 #include "modules/author.h"
@@ -24,14 +25,16 @@ static void withSession(Fn fn) {
 }
 
 int main() {
-    // Verify database is reachable on startup
+    // Verify database is reachable, then require staff login
     {
         mysqlx::Session* test = dbConnect();
         if (!test) {
             std::cerr << "\nFailed to start. Is Docker running? (docker compose up -d)\n";
             return 1;
         }
+        bool ok = doLogin(test);
         delete test;
+        if (!ok) return 0;
     }
 
     while (true) {

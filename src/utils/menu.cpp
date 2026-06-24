@@ -57,6 +57,57 @@ double getDoubleInput(const std::string& prompt, bool allowEmpty, double default
     }
 }
 
+std::string getDateInput(const std::string& prompt, bool allowEmpty) {
+    while (true) {
+        std::cout << prompt;
+        std::string input;
+        std::getline(std::cin, input);
+
+        if (input.empty()) {
+            if (allowEmpty) return "";
+            std::cout << "  Date is required. Please enter in YYYY-MM-DD format.\n";
+            continue;
+        }
+
+        // Must be exactly 10 chars: YYYY-MM-DD
+        bool valid = (input.size() == 10 &&
+                      isdigit(input[0]) && isdigit(input[1]) &&
+                      isdigit(input[2]) && isdigit(input[3]) &&
+                      input[4] == '-' &&
+                      isdigit(input[5]) && isdigit(input[6]) &&
+                      input[7] == '-' &&
+                      isdigit(input[8]) && isdigit(input[9]));
+
+        if (valid) {
+            int month = std::stoi(input.substr(5, 2));
+            int day   = std::stoi(input.substr(8, 2));
+            if (month < 1 || month > 12) valid = false;
+            if (day   < 1 || day   > 31) valid = false;
+        }
+
+        if (valid) return input;
+        std::cout << "  Invalid date format. Please use YYYY-MM-DD (e.g. 2024-03-15).\n";
+    }
+}
+
+std::string getEnumInput(const std::string& prompt, const std::vector<std::string>& allowed,
+                         bool allowEmpty, const std::string& defaultVal) {
+    while (true) {
+        std::cout << prompt;
+        std::string input;
+        std::getline(std::cin, input);
+        if (input.empty() && allowEmpty) return defaultVal;
+        for (const auto& v : allowed)
+            if (input == v) return input;
+        std::cout << "  Invalid. Allowed values: ";
+        for (size_t i = 0; i < allowed.size(); i++) {
+            std::cout << "'" << allowed[i] << "'";
+            if (i < allowed.size() - 1) std::cout << " / ";
+        }
+        std::cout << ".\n";
+    }
+}
+
 bool getConfirmation(const std::string& prompt) {
     while (true) {
         std::cout << prompt << " (y/n): ";

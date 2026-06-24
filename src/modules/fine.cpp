@@ -29,14 +29,9 @@ static void addFine(mysqlx::Session* sess) {
     }
 
     double amount    = getDoubleInput("Fine Amount (RM): ");
-    std::string paid = getStringInput("Paid Status (unpaid/paid) [default: unpaid]: ", true);
-    std::string date = getStringInput("Fine Date (YYYY-MM-DD) [blank = today]: ", true);
-
-    if (paid.empty()) paid = "unpaid";
-    if (paid != "unpaid" && paid != "paid") {
-        std::cout << "Invalid status. Defaulting to 'unpaid'.\n";
-        paid = "unpaid";
-    }
+    std::string paid = getEnumInput("Paid Status (unpaid/paid) [blank = unpaid]: ",
+                                    {"unpaid", "paid"}, true, "unpaid");
+    std::string date = getDateInput("Fine Date (YYYY-MM-DD) [blank = today]: ", true);
 
     try {
         if (date.empty()) {
@@ -57,8 +52,32 @@ static void addFine(mysqlx::Session* sess) {
     pressEnterToContinue();
 }
 
+static void showAllFines(mysqlx::Session* sess) {
+    try {
+        auto res = sess->sql(
+            "SELECT f.fine_id, f.loan_id, m.full_name, b.title,"
+            " f.amount, f.paid_status,"
+            " DATE_FORMAT(f.fine_date, '%Y-%m-%d')"
+            " FROM fine f"
+            " JOIN loan l   ON f.loan_id   = l.loan_id"
+            " JOIN member m ON l.member_id = m.member_id"
+            " JOIN book   b ON l.book_id   = b.book_id"
+            " ORDER BY f.fine_id").execute();
+        std::vector<int> w = {4, 5, 13, 13, 8, 7, 10};
+        printTableHeader({"ID", "Loan", "Member", "Book", "Amount", "Status", "Fine Date"}, w);
+        while (auto row = res.fetchOne()) {
+            std::ostringstream amt;
+            amt << "RM" << std::fixed << std::setprecision(2) << row[4].get<double>();
+            printRow({safeInt(row,0), safeInt(row,1), safeStr(row,2), safeStr(row,3),
+                      amt.str(), safeStr(row,5), safeStr(row,6)}, w);
+        }
+        printSeparator(w);
+    } catch (const mysqlx::Error& e) { std::cout << "Error: " << e.what() << "\n"; }
+}
+
 static void editFine(mysqlx::Session* sess) {
     std::cout << "\n--- Edit Fine ---\n";
+    showAllFines(sess);
     int id = getIntInput("Enter Fine ID to edit: ");
 
     try {
@@ -92,16 +111,12 @@ static void editFine(mysqlx::Session* sess) {
         std::cout << "(Leave blank to keep current value)\n\n";
 
         std::string amount = getStringInput("Amount [" + curAmount + "]: ", true);
-        std::string paid   = getStringInput("Status [" + curPaid   + "] (unpaid/paid): ", true);
-        std::string date   = getStringInput("Date   [" + curDate   + "]: ", true);
+        std::string paid   = getEnumInput("Status [" + curPaid + "] (unpaid/paid, blank = keep): ",
+                                          {"unpaid", "paid"}, true, curPaid);
+        std::string date   = getDateInput("Date   [" + curDate + "] (blank = keep): ", true);
 
         if (amount.empty()) amount = curAmount;
-        if (paid.empty())   paid   = curPaid;
         if (date.empty())   date   = curDate;
-        if (paid != "unpaid" && paid != "paid") {
-            std::cout << "Invalid status. Keeping '" << curPaid << "'.\n";
-            paid = curPaid;
-        }
 
         if (!getConfirmation("Save changes?")) {
             std::cout << "Edit cancelled.\n";
@@ -120,6 +135,7 @@ static void editFine(mysqlx::Session* sess) {
 
 static void deleteFine(mysqlx::Session* sess) {
     std::cout << "\n--- Delete Fine ---\n";
+    showAllFines(sess);
     int id = getIntInput("Enter Fine ID to delete: ");
 
     try {
@@ -171,8 +187,12 @@ static void searchFine(mysqlx::Session* sess) {
         " JOIN member m ON l.member_id = m.member_id"
         " JOIN book   b ON l.book_id   = b.book_id";
 
+    // Collect input before printing the table so the prompt doesn't interrupt header/rows
+    std::string fineKw;
+    if (choice == 4) { fineKw = getStringInput("Search member name: "); }
+
     try {
-        std::vector<int> w = {5, 6, 22, 22, 9, 8, 11};
+        std::vector<int> w = {4, 5, 13, 13, 8, 7, 10};
         printTableHeader({"ID", "Loan", "Member", "Book", "Amount", "Status", "Fine Date"}, w);
 
         int count = 0;
@@ -197,9 +217,8 @@ static void searchFine(mysqlx::Session* sess) {
             auto res = sess->sql(base + " WHERE f.paid_status = ? ORDER BY f.fine_id").bind(st).execute();
             printRows(res);
         } else {
-            std::string kw = getStringInput("Member name: ");
             auto res = sess->sql(base + " WHERE m.full_name LIKE ? ORDER BY f.fine_id")
-                           .bind("%" + kw + "%").execute();
+                           .bind("%" + fineKw + "%").execute();
             printRows(res);
         }
 

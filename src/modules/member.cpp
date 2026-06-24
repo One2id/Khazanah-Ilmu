@@ -10,14 +10,9 @@ static void addMember(mysqlx::Session* sess) {
     std::string name   = getStringInput("Full Name: ");
     std::string email  = getStringInput("Email [optional]: ", true);
     std::string phone  = getStringInput("Phone [optional]: ", true);
-    std::string date   = getStringInput("Membership Date (YYYY-MM-DD) [blank = today]: ", true);
-    std::string status = getStringInput("Status (active/suspended) [default: active]: ", true);
-
-    if (status.empty()) status = "active";
-    if (status != "active" && status != "suspended") {
-        std::cout << "Invalid status. Defaulting to 'active'.\n";
-        status = "active";
-    }
+    std::string date   = getDateInput("Membership Date (YYYY-MM-DD) [blank = today]: ", true);
+    std::string status = getEnumInput("Status (active/suspended) [blank = active]: ",
+                                      {"active", "suspended"}, true, "active");
 
     try {
         mysqlx::Value emailVal = email.empty() ? mysqlx::nullvalue : mysqlx::Value(email);
@@ -43,8 +38,24 @@ static void addMember(mysqlx::Session* sess) {
     pressEnterToContinue();
 }
 
+static void showAllMembers(mysqlx::Session* sess) {
+    try {
+        auto res = sess->sql(
+            "SELECT member_id, full_name, email, phone,"
+            " DATE_FORMAT(membership_date, '%Y-%m-%d'), status"
+            " FROM member ORDER BY member_id").execute();
+        std::vector<int> w = {4, 15, 16, 11, 10, 9};
+        printTableHeader({"ID", "Full Name", "Email", "Phone", "Join Date", "Status"}, w);
+        while (auto row = res.fetchOne())
+            printRow({safeInt(row,0), safeStr(row,1), safeStr(row,2),
+                      safeStr(row,3), safeStr(row,4), safeStr(row,5)}, w);
+        printSeparator(w);
+    } catch (const mysqlx::Error& e) { std::cout << "Error: " << e.what() << "\n"; }
+}
+
 static void editMember(mysqlx::Session* sess) {
     std::cout << "\n--- Edit Member ---\n";
+    showAllMembers(sess);
     int id = getIntInput("Enter Member ID to edit: ");
 
     try {
@@ -72,18 +83,14 @@ static void editMember(mysqlx::Session* sess) {
         std::string name   = getStringInput("Full Name   [" + curName   + "]: ", true);
         std::string email  = getStringInput("Email       [" + curEmail  + "]: ", true);
         std::string phone  = getStringInput("Phone       [" + curPhone  + "]: ", true);
-        std::string date   = getStringInput("Member Date [" + curDate   + "]: ", true);
-        std::string status = getStringInput("Status      [" + curStatus + "] (active/suspended): ", true);
+        std::string date   = getDateInput("Member Date [" + curDate + "] (blank = keep): ", true);
+        std::string status = getEnumInput("Status      [" + curStatus + "] (active/suspended, blank = keep): ",
+                                          {"active", "suspended"}, true, curStatus);
 
-        if (name.empty())   name   = curName;
-        if (email.empty())  email  = curEmail;
-        if (phone.empty())  phone  = curPhone;
-        if (date.empty())   date   = curDate;
-        if (status.empty()) status = curStatus;
-        if (status != "active" && status != "suspended") {
-            std::cout << "Invalid status. Keeping '" << curStatus << "'.\n";
-            status = curStatus;
-        }
+        if (name.empty())  name  = curName;
+        if (email.empty()) email = curEmail;
+        if (phone.empty()) phone = curPhone;
+        if (date.empty())  date  = curDate;
 
         if (!getConfirmation("Save changes?")) {
             std::cout << "Edit cancelled.\n";
@@ -110,6 +117,7 @@ static void editMember(mysqlx::Session* sess) {
 
 static void deleteMember(mysqlx::Session* sess) {
     std::cout << "\n--- Delete Member ---\n";
+    showAllMembers(sess);
     int id = getIntInput("Enter Member ID to delete: ");
 
     try {
@@ -154,7 +162,7 @@ static void searchMember(mysqlx::Session* sess) {
             " status FROM member WHERE full_name LIKE ? OR email LIKE ? ORDER BY member_id")
             .bind(q, q).execute();
 
-        std::vector<int> w = {4, 22, 22, 13, 10, 10};
+        std::vector<int> w = {4, 15, 16, 11, 10, 9};
         printTableHeader({"ID", "Full Name", "Email", "Phone", "Join Date", "Status"}, w);
 
         int count = 0;

@@ -31,8 +31,21 @@ static void addAuthor(mysqlx::Session* sess) {
     pressEnterToContinue();
 }
 
+static void showAllAuthors(mysqlx::Session* sess) {
+    try {
+        auto res = sess->sql("SELECT * FROM author ORDER BY author_id").execute();
+        std::vector<int> w = {4, 20, 13, 6, 6, 16};
+        printTableHeader({"ID", "Name", "Nationality", "Born", "Died", "Era"}, w);
+        while (auto row = res.fetchOne())
+            printRow({safeInt(row,0), safeStr(row,1), safeStr(row,2),
+                      safeInt(row,3), safeInt(row,4), safeStr(row,5)}, w);
+        printSeparator(w);
+    } catch (const mysqlx::Error& e) { std::cout << "Error: " << e.what() << "\n"; }
+}
+
 static void editAuthor(mysqlx::Session* sess) {
     std::cout << "\n--- Edit Author ---\n";
+    showAllAuthors(sess);
     int id = getIntInput("Enter Author ID to edit: ");
 
     try {
@@ -86,6 +99,7 @@ static void editAuthor(mysqlx::Session* sess) {
 
 static void deleteAuthor(mysqlx::Session* sess) {
     std::cout << "\n--- Delete Author ---\n";
+    showAllAuthors(sess);
     int id = getIntInput("Enter Author ID to delete: ");
 
     try {
@@ -123,7 +137,7 @@ static void searchAuthor(mysqlx::Session* sess) {
             "SELECT * FROM author WHERE author_name LIKE ? OR nationality LIKE ? ORDER BY author_id")
             .bind(q, q).execute();
 
-        std::vector<int> w = {4, 26, 16, 6, 6, 20};
+        std::vector<int> w = {4, 20, 13, 6, 6, 16};
         printTableHeader({"ID", "Name", "Nationality", "Born", "Died", "Era"}, w);
 
         int count = 0;

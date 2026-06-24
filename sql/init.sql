@@ -134,3 +134,18 @@ INSERT INTO fine (loan_id, amount, paid_status, fine_date) VALUES
 (5,  8.00,  'unpaid', '2025-09-30'),
 (7,  12.00, 'unpaid', '2025-08-16'),
 (8,  3.50,  'paid',   '2025-09-11');
+
+-- Staff accounts (login required to access the system)
+CREATE TABLE IF NOT EXISTS staff (
+    staff_id  INT AUTO_INCREMENT PRIMARY KEY,
+    username  VARCHAR(50)  NOT NULL UNIQUE,
+    password  VARCHAR(100) NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    role      VARCHAR(20)  NOT NULL DEFAULT 'staff'
+);
+
+INSERT INTO staff (username, password, full_name, role) VALUES
+('admin',      'admin123', 'System Administrator',   'admin'),
+('librarian',  'lib2024',  'Head Librarian',          'staff'),
+('mohammed',   'kilms111', 'Mohammed Hasan Alfadhli', 'staff'),
+('ibrahim',    'kilms222', 'Ibrahim S.S. Jalhoom',    'staff');

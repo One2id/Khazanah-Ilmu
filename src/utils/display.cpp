@@ -9,6 +9,9 @@ void printAppHeader() {
     std::cout << "     KHAZANAH ILMU  |  خزانة علم\n";
     std::cout << "   Historical & Multilingual Library System\n";
     std::cout << "==============================================\n";
+    std::cout << "  Mohammed Hasan Obaid Alfadhli\n";
+    std::cout << "  Ibrahim S.S. Jalhoom\n";
+    std::cout << "----------------------------------------------\n";
 }
 
 void printSeparator(const std::vector<int>& widths) {
