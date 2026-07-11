@@ -100,10 +100,24 @@ CMakeFiles/kilms.dir/src/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/kilms.dir/src/main.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/main.cpp -o CMakeFiles/kilms.dir/src/main.cpp.s
 
+CMakeFiles/kilms.dir/src/modules/auth.cpp.o: CMakeFiles/kilms.dir/flags.make
+CMakeFiles/kilms.dir/src/modules/auth.cpp.o: /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/auth.cpp
+CMakeFiles/kilms.dir/src/modules/auth.cpp.o: CMakeFiles/kilms.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/kilms.dir/src/modules/auth.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/kilms.dir/src/modules/auth.cpp.o -MF CMakeFiles/kilms.dir/src/modules/auth.cpp.o.d -o CMakeFiles/kilms.dir/src/modules/auth.cpp.o -c /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/auth.cpp
+
+CMakeFiles/kilms.dir/src/modules/auth.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/kilms.dir/src/modules/auth.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/auth.cpp > CMakeFiles/kilms.dir/src/modules/auth.cpp.i
+
+CMakeFiles/kilms.dir/src/modules/auth.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/kilms.dir/src/modules/auth.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/auth.cpp -o CMakeFiles/kilms.dir/src/modules/auth.cpp.s
+
 CMakeFiles/kilms.dir/src/modules/author.cpp.o: CMakeFiles/kilms.dir/flags.make
 CMakeFiles/kilms.dir/src/modules/author.cpp.o: /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/author.cpp
 CMakeFiles/kilms.dir/src/modules/author.cpp.o: CMakeFiles/kilms.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/kilms.dir/src/modules/author.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/kilms.dir/src/modules/author.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/kilms.dir/src/modules/author.cpp.o -MF CMakeFiles/kilms.dir/src/modules/author.cpp.o.d -o CMakeFiles/kilms.dir/src/modules/author.cpp.o -c /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/author.cpp
 
 CMakeFiles/kilms.dir/src/modules/author.cpp.i: cmake_force
@@ -117,7 +131,7 @@ CMakeFiles/kilms.dir/src/modules/author.cpp.s: cmake_force
 CMakeFiles/kilms.dir/src/modules/book.cpp.o: CMakeFiles/kilms.dir/flags.make
 CMakeFiles/kilms.dir/src/modules/book.cpp.o: /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/book.cpp
 CMakeFiles/kilms.dir/src/modules/book.cpp.o: CMakeFiles/kilms.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/kilms.dir/src/modules/book.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/kilms.dir/src/modules/book.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/kilms.dir/src/modules/book.cpp.o -MF CMakeFiles/kilms.dir/src/modules/book.cpp.o.d -o CMakeFiles/kilms.dir/src/modules/book.cpp.o -c /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/book.cpp
 
 CMakeFiles/kilms.dir/src/modules/book.cpp.i: cmake_force
@@ -131,7 +145,7 @@ CMakeFiles/kilms.dir/src/modules/book.cpp.s: cmake_force
 CMakeFiles/kilms.dir/src/modules/fine.cpp.o: CMakeFiles/kilms.dir/flags.make
 CMakeFiles/kilms.dir/src/modules/fine.cpp.o: /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/fine.cpp
 CMakeFiles/kilms.dir/src/modules/fine.cpp.o: CMakeFiles/kilms.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/kilms.dir/src/modules/fine.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/kilms.dir/src/modules/fine.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/kilms.dir/src/modules/fine.cpp.o -MF CMakeFiles/kilms.dir/src/modules/fine.cpp.o.d -o CMakeFiles/kilms.dir/src/modules/fine.cpp.o -c /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/fine.cpp
 
 CMakeFiles/kilms.dir/src/modules/fine.cpp.i: cmake_force
@@ -145,7 +159,7 @@ CMakeFiles/kilms.dir/src/modules/fine.cpp.s: cmake_force
 CMakeFiles/kilms.dir/src/modules/language.cpp.o: CMakeFiles/kilms.dir/flags.make
 CMakeFiles/kilms.dir/src/modules/language.cpp.o: /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/language.cpp
 CMakeFiles/kilms.dir/src/modules/language.cpp.o: CMakeFiles/kilms.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/kilms.dir/src/modules/language.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/kilms.dir/src/modules/language.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/kilms.dir/src/modules/language.cpp.o -MF CMakeFiles/kilms.dir/src/modules/language.cpp.o.d -o CMakeFiles/kilms.dir/src/modules/language.cpp.o -c /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/language.cpp
 
 CMakeFiles/kilms.dir/src/modules/language.cpp.i: cmake_force
@@ -159,7 +173,7 @@ CMakeFiles/kilms.dir/src/modules/language.cpp.s: cmake_force
 CMakeFiles/kilms.dir/src/modules/loan.cpp.o: CMakeFiles/kilms.dir/flags.make
 CMakeFiles/kilms.dir/src/modules/loan.cpp.o: /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/loan.cpp
 CMakeFiles/kilms.dir/src/modules/loan.cpp.o: CMakeFiles/kilms.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/kilms.dir/src/modules/loan.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/kilms.dir/src/modules/loan.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/kilms.dir/src/modules/loan.cpp.o -MF CMakeFiles/kilms.dir/src/modules/loan.cpp.o.d -o CMakeFiles/kilms.dir/src/modules/loan.cpp.o -c /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/loan.cpp
 
 CMakeFiles/kilms.dir/src/modules/loan.cpp.i: cmake_force
@@ -173,7 +187,7 @@ CMakeFiles/kilms.dir/src/modules/loan.cpp.s: cmake_force
 CMakeFiles/kilms.dir/src/modules/member.cpp.o: CMakeFiles/kilms.dir/flags.make
 CMakeFiles/kilms.dir/src/modules/member.cpp.o: /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/member.cpp
 CMakeFiles/kilms.dir/src/modules/member.cpp.o: CMakeFiles/kilms.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/kilms.dir/src/modules/member.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/kilms.dir/src/modules/member.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/kilms.dir/src/modules/member.cpp.o -MF CMakeFiles/kilms.dir/src/modules/member.cpp.o.d -o CMakeFiles/kilms.dir/src/modules/member.cpp.o -c /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/member.cpp
 
 CMakeFiles/kilms.dir/src/modules/member.cpp.i: cmake_force
@@ -187,7 +201,7 @@ CMakeFiles/kilms.dir/src/modules/member.cpp.s: cmake_force
 CMakeFiles/kilms.dir/src/utils/display.cpp.o: CMakeFiles/kilms.dir/flags.make
 CMakeFiles/kilms.dir/src/utils/display.cpp.o: /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/utils/display.cpp
 CMakeFiles/kilms.dir/src/utils/display.cpp.o: CMakeFiles/kilms.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/kilms.dir/src/utils/display.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/kilms.dir/src/utils/display.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/kilms.dir/src/utils/display.cpp.o -MF CMakeFiles/kilms.dir/src/utils/display.cpp.o.d -o CMakeFiles/kilms.dir/src/utils/display.cpp.o -c /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/utils/display.cpp
 
 CMakeFiles/kilms.dir/src/utils/display.cpp.i: cmake_force
@@ -201,7 +215,7 @@ CMakeFiles/kilms.dir/src/utils/display.cpp.s: cmake_force
 CMakeFiles/kilms.dir/src/utils/menu.cpp.o: CMakeFiles/kilms.dir/flags.make
 CMakeFiles/kilms.dir/src/utils/menu.cpp.o: /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/utils/menu.cpp
 CMakeFiles/kilms.dir/src/utils/menu.cpp.o: CMakeFiles/kilms.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/kilms.dir/src/utils/menu.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object CMakeFiles/kilms.dir/src/utils/menu.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/kilms.dir/src/utils/menu.cpp.o -MF CMakeFiles/kilms.dir/src/utils/menu.cpp.o.d -o CMakeFiles/kilms.dir/src/utils/menu.cpp.o -c /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/utils/menu.cpp
 
 CMakeFiles/kilms.dir/src/utils/menu.cpp.i: cmake_force
@@ -216,6 +230,7 @@ CMakeFiles/kilms.dir/src/utils/menu.cpp.s: cmake_force
 kilms_OBJECTS = \
 "CMakeFiles/kilms.dir/src/db/connection.cpp.o" \
 "CMakeFiles/kilms.dir/src/main.cpp.o" \
+"CMakeFiles/kilms.dir/src/modules/auth.cpp.o" \
 "CMakeFiles/kilms.dir/src/modules/author.cpp.o" \
 "CMakeFiles/kilms.dir/src/modules/book.cpp.o" \
 "CMakeFiles/kilms.dir/src/modules/fine.cpp.o" \
@@ -230,6 +245,7 @@ kilms_EXTERNAL_OBJECTS =
 
 kilms: CMakeFiles/kilms.dir/src/db/connection.cpp.o
 kilms: CMakeFiles/kilms.dir/src/main.cpp.o
+kilms: CMakeFiles/kilms.dir/src/modules/auth.cpp.o
 kilms: CMakeFiles/kilms.dir/src/modules/author.cpp.o
 kilms: CMakeFiles/kilms.dir/src/modules/book.cpp.o
 kilms: CMakeFiles/kilms.dir/src/modules/fine.cpp.o
@@ -241,7 +257,7 @@ kilms: CMakeFiles/kilms.dir/src/utils/menu.cpp.o
 kilms: CMakeFiles/kilms.dir/build.make
 kilms: /opt/homebrew/lib/libmysqlcppconnx.dylib
 kilms: CMakeFiles/kilms.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Linking CXX executable kilms"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Linking CXX executable kilms"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/kilms.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

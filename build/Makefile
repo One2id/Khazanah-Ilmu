@@ -177,6 +177,30 @@ src/main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/kilms.dir/build.make CMakeFiles/kilms.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
+src/modules/auth.o: src/modules/auth.cpp.o
+.PHONY : src/modules/auth.o
+
+# target to build an object file
+src/modules/auth.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kilms.dir/build.make CMakeFiles/kilms.dir/src/modules/auth.cpp.o
+.PHONY : src/modules/auth.cpp.o
+
+src/modules/auth.i: src/modules/auth.cpp.i
+.PHONY : src/modules/auth.i
+
+# target to preprocess a source file
+src/modules/auth.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kilms.dir/build.make CMakeFiles/kilms.dir/src/modules/auth.cpp.i
+.PHONY : src/modules/auth.cpp.i
+
+src/modules/auth.s: src/modules/auth.cpp.s
+.PHONY : src/modules/auth.s
+
+# target to generate assembly for a file
+src/modules/auth.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/kilms.dir/build.make CMakeFiles/kilms.dir/src/modules/auth.cpp.s
+.PHONY : src/modules/auth.cpp.s
+
 src/modules/author.o: src/modules/author.cpp.o
 .PHONY : src/modules/author.o
 
@@ -384,6 +408,9 @@ help:
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/modules/auth.o"
+	@echo "... src/modules/auth.i"
+	@echo "... src/modules/auth.s"
 	@echo "... src/modules/author.o"
 	@echo "... src/modules/author.i"
 	@echo "... src/modules/author.s"

@@ -3,6 +3,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/kilms.dir/src/db/connection.cpp.o.d"
   "CMakeFiles/kilms.dir/src/main.cpp.o"
   "CMakeFiles/kilms.dir/src/main.cpp.o.d"
+  "CMakeFiles/kilms.dir/src/modules/auth.cpp.o"
+  "CMakeFiles/kilms.dir/src/modules/auth.cpp.o.d"
   "CMakeFiles/kilms.dir/src/modules/author.cpp.o"
   "CMakeFiles/kilms.dir/src/modules/author.cpp.o.d"
   "CMakeFiles/kilms.dir/src/modules/book.cpp.o"

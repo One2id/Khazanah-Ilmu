@@ -866,8 +866,9 @@ CMakeFiles/kilms.dir/src/main.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/set \
   /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/utils/display.h \
   /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/utils/menu.h \
-  /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/member.h \
+  /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/auth.h \
   /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/../db/connection.h \
+  /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/member.h \
   /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/book.h \
   /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/author.h \
   /Users/mohammedhasanobaidal-fadhli/Documents/github/Khazanah-Ilmu/src/modules/language.h \
